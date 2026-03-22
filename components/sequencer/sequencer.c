@@ -64,7 +64,7 @@ static void emergency_shutdown(seq_fault_t fault_code)
     ESP_LOGE(TAG, "Emergency shutdown — fault %d", fault_code);
 
     /* PA off first, no delay */
-    relay_set(2, false);
+    relay_set(s_cfg.pa_relay_id, false);
 
     /* Execute RX sequence to restore safe relay state */
     run_sequence(s_cfg.rx_steps, s_cfg.rx_num_steps);

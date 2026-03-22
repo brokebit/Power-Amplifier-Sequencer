@@ -149,7 +149,7 @@ pio run -t erase && pio run -t upload
 - Maximum 8 steps per direction (`SEQ_MAX_STEPS`)
 - Relay IDs must be 1-6
 - The RX sequence should be the logical reverse of the TX sequence
-- Relay 2 is hardcoded as the PA relay in emergency shutdown — if your PA is on a different relay, update `emergency_shutdown()` in [sequencer.c](components/sequencer/sequencer.c)
+- The PA relay (used by emergency shutdown) is configurable via `config set pa_relay <1-6>` (default: 2)
 
 ## Serial Console (CLI)
 
@@ -175,7 +175,7 @@ On boot, a `seq> ` prompt is available on UART0 (USB serial). ESP_LOG output is 
 | `config save` | Persist current config to NVS |
 | `config defaults` | Reset to factory defaults (in memory only) |
 
-Config keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `fwd_cal`, `ref_cal`, `therm_beta`, `therm_r0`, `therm_rseries`
+Config keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `pa_relay`, `fwd_cal`, `ref_cal`, `therm_beta`, `therm_r0`, `therm_rseries`
 
 ### Sequence Editing
 
@@ -287,7 +287,6 @@ Each component under `components/` has its own `CMakeLists.txt`, `include/` dire
 
 ### TODO 
 - Figure out the RF Head voltage to db math and proper calibration.
-- Make the PA relay configurable vs. hardcoded
 - Add ability to associate a name with a relay. i.e. R1 is LNA Coax Switch 
 - Implement the Nextion display driver and UI.
 - Implement a reset button to recover from EMERGENCY fault state without needing to power cycle.

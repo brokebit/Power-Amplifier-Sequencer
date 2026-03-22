@@ -47,6 +47,9 @@ typedef struct {
     float      temp1_fault_threshold_c;  /* default: 65.0 */
     float      temp2_fault_threshold_c;  /* default: 65.0 */
 
+    /* PA relay — used by emergency_shutdown() to immediately de-energise the PA */
+    uint8_t    pa_relay_id;              /* default: 2 (relay IDs are 1-6) */
+
     /* Power meter calibration — P = cal_factor × V² */
     float      fwd_power_cal_factor;     /* default: 1.0  */
     float      ref_power_cal_factor;     /* default: 1.0  */

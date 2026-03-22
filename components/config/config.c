@@ -28,6 +28,7 @@ void config_defaults(app_config_t *cfg)
     cfg->swr_fault_threshold     = 3.0f;
     cfg->temp1_fault_threshold_c = 65.0f;
     cfg->temp2_fault_threshold_c = 65.0f;
+    cfg->pa_relay_id             = 2;
 
     /* Power meter calibration */
     cfg->fwd_power_cal_factor = 1.0f;

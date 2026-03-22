@@ -12,10 +12,11 @@
 
 static void print_config(const app_config_t *cfg)
 {
-    printf("Fault thresholds:\n");
+    printf("Fault settings:\n");
     printf("  swr_threshold   = %.1f\n", cfg->swr_fault_threshold);
     printf("  temp1_threshold = %.1f C\n", cfg->temp1_fault_threshold_c);
     printf("  temp2_threshold = %.1f C\n", cfg->temp2_fault_threshold_c);
+    printf("  pa_relay        = %d\n", cfg->pa_relay_id);
 
     printf("Power calibration:\n");
     printf("  fwd_cal         = %.4f\n", cfg->fwd_power_cal_factor);
@@ -68,6 +69,23 @@ static const config_key_t s_keys[] = {
 
 #define NUM_KEYS (sizeof(s_keys) / sizeof(s_keys[0]))
 
+/* Integer config keys (uint8_t fields) */
+typedef struct {
+    const char *key;
+    size_t      offset;
+    int         min;
+    int         max;
+} config_int_key_t;
+
+#define CFG_INT_KEY(name, field, lo, hi) \
+    { name, offsetof(app_config_t, field), lo, hi }
+
+static const config_int_key_t s_int_keys[] = {
+    CFG_INT_KEY("pa_relay", pa_relay_id, 1, 6),
+};
+
+#define NUM_INT_KEYS (sizeof(s_int_keys) / sizeof(s_int_keys[0]))
+
 static int set_config_value(app_config_t *cfg, const char *key, const char *val_str)
 {
     for (size_t i = 0; i < NUM_KEYS; i++) {
@@ -90,9 +108,32 @@ static int set_config_value(app_config_t *cfg, const char *key, const char *val_
         }
     }
 
+    for (size_t i = 0; i < NUM_INT_KEYS; i++) {
+        if (strcmp(s_int_keys[i].key, key) == 0) {
+            char *end;
+            long val = strtol(val_str, &end, 10);
+            if (end == val_str || *end != '\0') {
+                printf("Invalid integer: %s\n", val_str);
+                return 1;
+            }
+            if (val < s_int_keys[i].min || val > s_int_keys[i].max) {
+                printf("Out of range [%d .. %d]: %s\n",
+                       s_int_keys[i].min, s_int_keys[i].max, val_str);
+                return 1;
+            }
+            uint8_t *field = (uint8_t *)cfg + s_int_keys[i].offset;
+            *field = (uint8_t)val;
+            printf("%s = %d\n", key, (int)*field);
+            return 0;
+        }
+    }
+
     printf("Unknown key: %s\nValid keys:", key);
     for (size_t i = 0; i < NUM_KEYS; i++) {
         printf(" %s", s_keys[i].key);
+    }
+    for (size_t i = 0; i < NUM_INT_KEYS; i++) {
+        printf(" %s", s_int_keys[i].key);
     }
     printf("\n");
     return 1;
@@ -120,6 +161,9 @@ static int cmd_config_handler(int argc, char **argv)
             printf("Keys:");
             for (size_t i = 0; i < NUM_KEYS; i++) {
                 printf(" %s", s_keys[i].key);
+            }
+            for (size_t i = 0; i < NUM_INT_KEYS; i++) {
+                printf(" %s", s_int_keys[i].key);
             }
             printf("\n");
             return 1;
