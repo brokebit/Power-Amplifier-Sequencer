@@ -4,6 +4,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* =========================================================
  * system_state.h — Observable system state snapshot
  *
@@ -53,3 +57,7 @@ void system_state_set_sensors(float fwd_w, float ref_w, float swr,
  * Reader — copies a consistent snapshot into *out
  * --------------------------------------------------------- */
 void system_state_get(system_state_t *out);
+
+#ifdef __cplusplus
+}
+#endif

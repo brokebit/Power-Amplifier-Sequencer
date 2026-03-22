@@ -15,6 +15,10 @@
 #include "esp_err.h"
 #include "driver/i2c_master.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct ads1115_dev *ads1115_handle_t;
 
 typedef enum {
@@ -67,3 +71,7 @@ float ads1115_raw_to_voltage(ads1115_handle_t handle, int16_t raw);
  * Remove the device from the bus and free resources.
  */
 void ads1115_deinit(ads1115_handle_t handle);
+
+#ifdef __cplusplus
+}
+#endif

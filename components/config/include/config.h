@@ -3,6 +3,10 @@
 #include "esp_err.h"
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* =========================================================
  * config.h — NVS-backed runtime configuration
  * ========================================================= */
@@ -71,3 +75,7 @@ esp_err_t config_save(const app_config_t *cfg);
  * Fill *cfg with factory defaults without touching NVS.
  */
 void config_defaults(app_config_t *cfg);
+
+#ifdef __cplusplus
+}
+#endif

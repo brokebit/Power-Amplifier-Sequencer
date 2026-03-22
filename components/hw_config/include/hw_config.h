@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* =========================================================
  * hw_config.h — Hardware pin and peripheral definitions
  * ESP32-S3 23cm RF PA Sequencer
@@ -61,3 +65,7 @@
 #define HW_NEXTION_TX_GPIO      17
 #define HW_NEXTION_RX_GPIO      18
 #define HW_NEXTION_BAUD_RATE    9600
+
+#ifdef __cplusplus
+}
+#endif

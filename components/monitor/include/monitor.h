@@ -19,6 +19,10 @@
 #include "esp_err.h"
 #include "config.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Initialise monitor: I2C bus, both ADS1115s, ALERT GPIO ISRs.
  * Call after sequencer_init() (needs the event queue).
@@ -31,3 +35,7 @@ esp_err_t monitor_init(const app_config_t *cfg);
  *   xTaskCreate(monitor_task, "monitor", 4096, NULL, 7, NULL);
  */
 void monitor_task(void *arg);
+
+#ifdef __cplusplus
+}
+#endif

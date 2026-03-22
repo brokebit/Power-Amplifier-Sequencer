@@ -5,6 +5,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* =========================================================
  * sequencer.h — Core RF PA sequencer state machine
  *
@@ -90,3 +94,7 @@ esp_err_t sequencer_clear_fault(void);
  * Return the fault code of the last fault, or SEQ_FAULT_NONE.
  */
 seq_fault_t sequencer_get_fault(void);
+
+#ifdef __cplusplus
+}
+#endif

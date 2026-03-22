@@ -3,6 +3,10 @@
 #include "esp_err.h"
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* =========================================================
  * ptt.h — PTT GPIO interrupt driver
  *
@@ -26,3 +30,7 @@ esp_err_t ptt_init(void);
  * Reads the GPIO level directly — useful for startup state detection.
  */
 bool ptt_is_active(void);
+
+#ifdef __cplusplus
+}
+#endif

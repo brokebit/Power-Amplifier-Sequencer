@@ -3,6 +3,10 @@
 #include "esp_err.h"
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* =========================================================
  * buttons.h — Debounced GPIO button driver
  *
@@ -36,3 +40,7 @@ esp_err_t buttons_init(void);
  * Returns ESP_ERR_INVALID_ARG if button_id is 1 or > 6.
  */
 esp_err_t button_register_cb(uint8_t button_id, button_cb_t cb);
+
+#ifdef __cplusplus
+}
+#endif
