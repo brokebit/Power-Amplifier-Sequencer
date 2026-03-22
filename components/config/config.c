@@ -1,8 +1,10 @@
-#include "config.h"
+#include <string.h>
+
+#include "esp_log.h"
 #include "nvs_flash.h"
 #include "nvs.h"
-#include "esp_log.h"
-#include <string.h>
+
+#include "config.h"
 
 static const char *TAG = "config";
 

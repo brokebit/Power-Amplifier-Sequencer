@@ -1,8 +1,9 @@
 #pragma once
 
-#include "hw_config.h"
 #include <stdbool.h>
 #include <stdint.h>
+
+#include "hw_config.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,10 +1,13 @@
-#include "ptt.h"
+#include <stdbool.h>
+
+#include "esp_log.h"
+#include "driver/gpio.h"
+
 #include "hw_config.h"
 #include "sequencer.h"
 #include "system_state.h"
-#include "driver/gpio.h"
-#include "esp_log.h"
-#include <stdbool.h>
+
+#include "ptt.h"
 
 static const char *TAG = "ptt";
 

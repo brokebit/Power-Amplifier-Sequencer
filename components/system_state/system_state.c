@@ -1,6 +1,8 @@
-#include "system_state.h"
-#include "freertos/FreeRTOS.h"
 #include <string.h>
+
+#include "freertos/FreeRTOS.h"
+
+#include "system_state.h"
 
 static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
 static system_state_t s_state = {

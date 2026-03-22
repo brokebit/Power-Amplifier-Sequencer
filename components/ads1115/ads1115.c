@@ -1,6 +1,8 @@
-#include "ads1115.h"
-#include "esp_log.h"
 #include <stdlib.h>
+
+#include "esp_log.h"
+
+#include "ads1115.h"
 
 static const char *TAG = "ads1115";
 

@@ -1,15 +1,18 @@
-#include "monitor.h"
-#include "ads1115.h"
-#include "sequencer.h"
-#include "system_state.h"
-#include "hw_config.h"
+#include <math.h>
+#include <string.h>
+
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
-#include <math.h>
-#include <string.h>
+
+#include "ads1115.h"
+#include "hw_config.h"
+#include "sequencer.h"
+#include "system_state.h"
+
+#include "monitor.h"
 
 static const char *TAG = "monitor";
 

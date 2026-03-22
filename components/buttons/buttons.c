@@ -1,10 +1,13 @@
-#include "buttons.h"
+#include <string.h>
+
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "driver/gpio.h"
+
 #include "hw_config.h"
 #include "sequencer.h"
-#include "driver/gpio.h"
-#include "esp_timer.h"
-#include "esp_log.h"
-#include <string.h>
+
+#include "buttons.h"
 
 static const char *TAG = "buttons";
 

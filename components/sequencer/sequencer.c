@@ -1,11 +1,14 @@
-#include "sequencer.h"
-#include "system_state.h"
-#include "relays.h"
+#include <string.h>
+
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-#include <string.h>
+
+#include "relays.h"
+#include "system_state.h"
+
+#include "sequencer.h"
 
 static const char *TAG = "sequencer";
 
