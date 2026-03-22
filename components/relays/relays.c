@@ -1,8 +1,10 @@
-#include "relays.h"
-#include "system_state.h"
-#include "hw_config.h"
-#include "driver/gpio.h"
 #include "esp_log.h"
+#include "driver/gpio.h"
+
+#include "hw_config.h"
+#include "system_state.h"
+
+#include "relays.h"
 
 static const char *TAG = "relays";
 

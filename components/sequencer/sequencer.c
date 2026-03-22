@@ -115,6 +115,17 @@ seq_fault_t sequencer_get_fault(void)
     return s_fault;
 }
 
+esp_err_t sequencer_update_config(const app_config_t *cfg)
+{
+    if (s_state != SEQ_STATE_RX) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    memcpy(&s_cfg, cfg, sizeof(app_config_t));
+    ESP_LOGI(TAG, "Config updated (TX:%d steps, RX:%d steps)",
+             s_cfg.tx_num_steps, s_cfg.rx_num_steps);
+    return ESP_OK;
+}
+
 esp_err_t sequencer_clear_fault(void)
 {
     if (s_state != SEQ_STATE_FAULT) {

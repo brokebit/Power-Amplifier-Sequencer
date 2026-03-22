@@ -110,6 +110,16 @@ emergency_shutdown(fault_code):
   5. system_state_set_sequencer()  -- publish fault state to blackboard
 ```
 
+### Runtime Config Update
+
+`sequencer_update_config()` allows hot-swapping the relay sequences and thresholds without a restart:
+
+1. Verifies the current state is `SEQ_STATE_RX` (returns `ESP_ERR_INVALID_STATE` otherwise).
+2. Overwrites the module-static `s_cfg` with a full `memcpy` of the new `app_config_t`.
+3. Logs the new TX/RX step counts for traceability.
+
+The state guard ensures that relay sequences are never modified while a transition is in progress. Callers should check the return value -- if the sequencer is mid-sequence, in TX, or faulted, the update is silently rejected.
+
 ### Fault Clearance
 
 `sequencer_clear_fault()` can be called from any task context. It:
@@ -127,7 +137,7 @@ emergency_shutdown(fault_code):
 
 - **Hardcoded PA relay ID (relay 2) in emergency shutdown.** The PA relay is turned off with a direct `relay_set(2, false)` call before running the full RX sequence. This is a deliberate safety choice: even if the RX sequence configuration is malformed, the PA is guaranteed to be de-energised first. The trade-off is that changing the PA relay assignment requires a code change, not just a config change.
 
-- **Configuration snapshot at init.** `sequencer_init` copies the entire `app_config_t` into a module-static variable. The sequencer does not observe config changes at runtime. A restart (or re-init) is required to pick up new relay sequences.
+- **Configuration snapshot, hot-swappable in RX.** `sequencer_init` copies the entire `app_config_t` into a module-static variable. The config can be replaced at runtime via `sequencer_update_config()`, but only while the sequencer is in `SEQ_STATE_RX` -- the function returns `ESP_ERR_INVALID_STATE` in any other state. This prevents sequences from being swapped while a relay transition or fault is in progress, avoiding partial-sequence hazards.
 
 - **Latching fault state.** Once in `SEQ_STATE_FAULT`, all incoming events are discarded. Recovery requires an explicit call to `sequencer_clear_fault()` from outside the sequencer (e.g., a UI button handler). This prevents automatic re-transmission after a fault condition.
 
@@ -157,5 +167,7 @@ emergency_shutdown(fault_code):
 - **Relay 2 is special.** Emergency shutdown hardcodes relay 2 as the PA relay for immediate de-energisation. If the hardware mapping changes, `emergency_shutdown()` must be updated.
 
 - **Fault recovery requires external action.** The sequencer will not self-recover from a fault. The caller (UI, serial console, etc.) must invoke `sequencer_clear_fault()` after the fault condition is resolved.
+
+- **Runtime config updates.** Call `sequencer_update_config()` to change relay sequences or fault thresholds without a restart. The function only succeeds in `SEQ_STATE_RX` -- check the return value. A typical pattern is to verify `sequencer_get_state() == SEQ_STATE_RX` before calling, or simply call and handle the `ESP_ERR_INVALID_STATE` return. The update is a full `memcpy` replacement, so the caller must provide a complete, valid `app_config_t`.
 
 - **Reading sequencer state.** For single-field reads from within the sequencer's own logic, use `sequencer_get_state()` / `sequencer_get_fault()`. For cross-component consumers (display, logger) that need a consistent snapshot of multiple fields, prefer `system_state_get()`.

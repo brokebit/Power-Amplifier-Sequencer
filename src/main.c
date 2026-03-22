@@ -1,18 +1,21 @@
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include "buttons.h"
+#include "cli.h"
 #include "config.h"
+#include "monitor.h"
+#include "ptt.h"
 #include "relays.h"
 #include "sequencer.h"
-#include "system_state.h"
-#include "ptt.h"
-#include "buttons.h"
-#include "monitor.h"
-#include "esp_log.h"
 
 static const char *TAG = "main";
 
 void app_main(void)
 {
     /* --- load config from NVS (writes defaults on first boot) --- */
-    app_config_t cfg;
+    static app_config_t cfg;
     ESP_ERROR_CHECK(config_init(&cfg));
 
     /* --- relays: configure GPIO outputs before sequencer drives them --- */
@@ -36,37 +39,6 @@ void app_main(void)
 
     ESP_LOGI(TAG, "all components initialised");
 
-    /* Print system state once per second */
-    static const char *state_names[] = {
-        [SEQ_STATE_RX]            = "RX",
-        [SEQ_STATE_SEQUENCING_TX] = "SEQ_TX",
-        [SEQ_STATE_TX]            = "TX",
-        [SEQ_STATE_SEQUENCING_RX] = "SEQ_RX",
-        [SEQ_STATE_FAULT]         = "FAULT",
-    };
-    static const char *fault_names[] = {
-        [SEQ_FAULT_NONE]       = "none",
-        [SEQ_FAULT_HIGH_SWR]   = "HIGH_SWR",
-        [SEQ_FAULT_OVER_TEMP1] = "OVER_TEMP1",
-        [SEQ_FAULT_OVER_TEMP2] = "OVER_TEMP2",
-        [SEQ_FAULT_EMERGENCY]  = "EMERGENCY",
-    };
-
-    system_state_t ss;
-    for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        system_state_get(&ss);
-
-        ESP_LOGI(TAG,
-            "PTT:%s  State:%-6s  Fault:%-10s  "
-            "Relays:0x%02X  "
-            "Fwd:%.1fW  Ref:%.1fW  SWR:%.1f  "
-            "T1:%.1f°C  T2:%.1f°C",
-            ss.ptt_active ? "ON " : "off",
-            state_names[ss.seq_state],
-            fault_names[ss.seq_fault],
-            ss.relay_states,
-            ss.fwd_power_w, ss.ref_power_w, ss.swr,
-            ss.temp1_c, ss.temp2_c);
-    }
+    /* --- CLI REPL on UART0 (runs as its own task) --- */
+    ESP_ERROR_CHECK(cli_init(&cfg));
 }

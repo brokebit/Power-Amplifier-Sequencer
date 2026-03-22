@@ -17,6 +17,7 @@
  * ========================================================= */
 
 #include "esp_err.h"
+#include "ads1115.h"
 #include "config.h"
 
 #ifdef __cplusplus
@@ -35,6 +36,19 @@ esp_err_t monitor_init(const app_config_t *cfg);
  *   xTaskCreate(monitor_task, "monitor", 4096, NULL, 7, NULL);
  */
 void monitor_task(void *arg);
+
+/**
+ * Update the monitor's config (thresholds, calibration, thermistor params).
+ * Safe to call from any task.
+ */
+esp_err_t monitor_update_config(const app_config_t *cfg);
+
+/**
+ * Read a single ADC channel (blocking). Mutex-protected so it can be
+ * called from any task without conflicting with monitor_task.
+ * Returns ESP_OK on success, voltage written to *out_voltage.
+ */
+esp_err_t monitor_read_channel(ads1115_channel_t ch, float *out_voltage);
 
 #ifdef __cplusplus
 }

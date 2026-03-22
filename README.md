@@ -57,6 +57,7 @@ The system is organized as ESP-IDF components under `components/`. Two FreeRTOS 
 | [relays](components/relays/) | GPIO driver for 6 relays. 1-indexed IDs matching schematic labels. |
 | [ptt](components/ptt/) | PTT GPIO interrupt driver. Both-edge ISR posts assert/release events to sequencer queue. |
 | [buttons](components/buttons/) | Debounced button driver (50 ms timer). BTN1 wired to emergency PA off event. BTN2-6 support optional callbacks. |
+| [cli](components/cli/README.md) | Interactive serial console (REPL) on UART0 using esp_console. Runtime inspection, configuration, sequence editing, ADC diagnostics, and relay control. |
 | [hw_config](components/hw_config/) | Header-only pin definitions and peripheral addresses. |
 
 ### Initialization Order
@@ -72,6 +73,7 @@ buttons_init()     — uses already-installed ISR service
 monitor_init()     — I2C bus, ADS1115s, ALERT/RDY ISRs
 xTaskCreate(sequencer_task, ...)   — priority 10
 xTaskCreate(monitor_task, ...)     — priority 7
+cli_init()         — register commands, suppress logging, start REPL task (pri 5)
 ```
 
 ### Key Design Decisions
@@ -80,7 +82,7 @@ xTaskCreate(monitor_task, ...)     — priority 7
 - **Blackboard pattern for observable state.** `system_state` aggregates readings from all subsystems into a spinlock-protected struct. Consumers (display, console logger) get consistent atomic snapshots.
 - **Latching faults.** The sequencer enters FAULT state and ignores all events until `sequencer_clear_fault()` is called externally. The monitor sends fault events every cycle — the sequencer is responsible for deduplication.
 - **Emergency shutdown hardcodes relay 2.** Safety-critical: PA relay is de-energised before running the full RX sequence, even if config is malformed.
-- **Configuration snapshot at init.** Both the sequencer and monitor copy `app_config_t` at init time. Runtime config changes require a restart.
+- **Configuration snapshot at init, hot-swappable via CLI.** Both the sequencer and monitor copy `app_config_t` at init time. The CLI can modify config in-place and push updates via `sequencer_update_config()` and `monitor_update_config()` without restarting.
 
 ## Relay Sequences
 
@@ -149,6 +151,63 @@ pio run -t erase && pio run -t upload
 - The RX sequence should be the logical reverse of the TX sequence
 - Relay 2 is hardcoded as the PA relay in emergency shutdown — if your PA is on a different relay, update `emergency_shutdown()` in [sequencer.c](components/sequencer/sequencer.c)
 
+## Serial Console (CLI)
+
+On boot, a `seq> ` prompt is available on UART0 (USB serial). ESP_LOG output is suppressed by default to keep the prompt clean. Type `help` for a command list.
+
+### System
+
+| Command | Description |
+|---------|-------------|
+| `status` | One-shot dump of PTT, state, fault, relays, power, SWR, temps |
+| `version` | Firmware name/version, IDF version, chip info |
+| `reboot` | Restart the ESP32 |
+| `log on` | Enable log output (INFO level) |
+| `log off` | Suppress all log output (default) |
+| `log <level> [tag]` | Set level per-tag: `none`, `error`, `warn`, `info`, `debug`, `verbose` |
+
+### Configuration
+
+| Command | Description |
+|---------|-------------|
+| `config show` | Print all config fields (thresholds, calibration, sequences) |
+| `config set <key> <value>` | Modify a field in memory (see keys below) |
+| `config save` | Persist current config to NVS |
+| `config defaults` | Reset to factory defaults (in memory only) |
+
+Config keys: `swr_threshold`, `temp_threshold`, `fwd_cal`, `ref_cal`, `therm_beta`, `therm_r0`, `therm_rseries`
+
+### Sequence Editing
+
+| Command | Description |
+|---------|-------------|
+| `seq tx show` | Display current TX relay sequence |
+| `seq rx show` | Display current RX relay sequence |
+| `seq tx set R3:on:50 R1:on:50 R2:on:0` | Define TX sequence (up to 8 steps) |
+| `seq rx set R2:off:50 R1:off:50 R3:off:0` | Define RX sequence |
+| `seq save` | Persist sequences to NVS |
+| `seq apply` | Hot-swap config into running sequencer + monitor (RX state only) |
+
+Step format: `R<relay_id>:<on|off>:<delay_ms>` — e.g. `R3:on:50` means "energise relay 3, wait 50 ms".
+
+### Relay & Fault Control
+
+| Command | Description |
+|---------|-------------|
+| `relay show` | Display all relay states |
+| `relay <1-6> on\|off` | Force a single relay (bypasses sequencer — use with caution) |
+| `fault show` | Show sequencer state and fault code |
+| `fault clear` | Clear a latched fault, return to RX |
+| `fault inject <swr\|temp1\|temp2\|emergency>` | Inject a test fault event |
+
+### ADC & Monitoring
+
+| Command | Description |
+|---------|-------------|
+| `adc read <0-3>` | Read a single ADC channel (voltage) |
+| `adc scan` | Read all 4 channels |
+| `monitor [interval_ms]` | Continuous status output (default 1000 ms, Enter to stop) |
+
 ## Development Setup
 
 ### Prerequisites
@@ -189,10 +248,11 @@ pio run -t erase && pio run -t upload
 ```
 Sequencer/
 ├── src/
-│   └── main.c                  # app_main — init sequence + console print loop
+│   └── main.c                  # app_main — init sequence, starts REPL
 ├── components/
 │   ├── ads1115/                # ADS1115 I2C driver
 │   ├── buttons/                # Debounced button input
+│   ├── cli/                    # Interactive serial console (REPL)
 │   ├── config/                 # NVS-backed configuration
 │   ├── hw_config/              # Pin/peripheral definitions (header only)
 │   ├── monitor/                # ADC sensing task
@@ -210,7 +270,6 @@ Each component under `components/` has its own `CMakeLists.txt`, `include/` dire
 ### TODO 
 - Figure out the RF Head voltage to db math and proper calibration. 
 - Implement the Nextion display driver and UI.
-- Add a REPL console command interface for live monitoring and config changes.
 - Implement a reset button to recover from EMERGENCY fault state without needing to power cycle.
 - Add wifi and OTA updates for remote monitoring and firmware upgrades.
 - Implement an API for external control of the sequencer (e.g. from a PC or microcontroller) via WiFi. 

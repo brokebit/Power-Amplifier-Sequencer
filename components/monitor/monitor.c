@@ -6,6 +6,8 @@
 #include "driver/i2c_master.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
 
 #include "ads1115.h"
 #include "hw_config.h"
@@ -31,6 +33,9 @@ static ads1115_handle_t         s_chip[2];  /* [0]=0x48 reserved, [1]=0x49 activ
 /* ALERT/RDY events from ISRs. Item = chip index (0 or 1).
  * Only chip 1 has an ISR installed; chip 0 is reserved for future use. */
 static QueueHandle_t            s_adc_queue;
+
+/* Mutex protecting ADC access — shared between monitor_task and CLI */
+static SemaphoreHandle_t        s_adc_mutex;
 
 /* ---- ISR handler (chip 1 only) ----------------------------------------- */
 
@@ -64,11 +69,19 @@ static float voltage_to_temp_c(float v_adc, const app_config_t *cfg)
 /* Calculate SWR from forward and reflected voltages. */
 static float calc_swr(float vf, float vr)
 {
-    if (vf < 0.001f) return 1.0f;
+    if (vf < 0.001f) {
+        return 1.0f;
+    }
     float gamma = vr / vf;
-    if (gamma >= 1.0f) return 99.9f;
+    if (gamma >= 1.0f) {
+        return 99.9f;
+    }
     return (1.0f + gamma) / (1.0f - gamma);
 }
+
+/* ---- forward declarations ----------------------------------------------- */
+
+static float read_channel(ads1115_channel_t ch);
 
 /* ---- fault injection ---------------------------------------------------- */
 
@@ -80,12 +93,44 @@ static void inject_fault(seq_fault_t fault)
 
 /* ---- public API --------------------------------------------------------- */
 
+esp_err_t monitor_read_channel(ads1115_channel_t ch, float *out_voltage)
+{
+    if (!s_adc_mutex) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (xSemaphoreTake(s_adc_mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    float v = read_channel(ch);
+
+    xSemaphoreGive(s_adc_mutex);
+
+    if (v < 0.0f) {
+        return ESP_FAIL;
+    }
+    *out_voltage = v;
+    return ESP_OK;
+}
+
+esp_err_t monitor_update_config(const app_config_t *cfg)
+{
+    memcpy(&s_cfg, cfg, sizeof(s_cfg));
+    ESP_LOGI(TAG, "Config updated");
+    return ESP_OK;
+}
+
 esp_err_t monitor_init(const app_config_t *cfg)
 {
     memcpy(&s_cfg, cfg, sizeof(s_cfg));
 
     s_adc_queue = xQueueCreate(8, sizeof(uint8_t));
     if (!s_adc_queue) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    s_adc_mutex = xSemaphoreCreateMutex();
+    if (!s_adc_mutex) {
         return ESP_ERR_NO_MEM;
     }
 
@@ -106,11 +151,15 @@ esp_err_t monitor_init(const app_config_t *cfg)
 
     /* chip 0 (0x48) — reserved for future use */
     ret = ads1115_init(s_bus, HW_ADS1115_0_ADDR, ADS1115_PGA_4096, &s_chip[0]);
-    if (ret != ESP_OK) return ret;
+    if (ret != ESP_OK) {
+        return ret;
+    }
 
     /* chip 1 (0x49) — active: AIN0=fwd, AIN1=ref, AIN2=temp-R, AIN3=temp-L */
     ret = ads1115_init(s_bus, HW_ADS1115_1_ADDR, ADS1115_PGA_4096, &s_chip[1]);
-    if (ret != ESP_OK) return ret;
+    if (ret != ESP_OK) {
+        return ret;
+    }
 
     /* ALERT/RDY GPIO — chip 1 only has an ISR; chip 0 is input+pullup, no handler */
     gpio_install_isr_service(0);   /* no-op if already installed */
@@ -175,6 +224,8 @@ void monitor_task(void *arg)
     float last_temp1 = 0.0f, last_temp2 = 0.0f;
 
     for (;;) {
+        xSemaphoreTake(s_adc_mutex, portMAX_DELAY);
+
         /* ---- Forward + Reflected power ---- */
         float fwd_v = read_channel(ADS1115_CHANNEL_0);
         float ref_v = read_channel(ADS1115_CHANNEL_1);
@@ -221,5 +272,12 @@ void monitor_task(void *arg)
                 inject_fault(SEQ_FAULT_OVER_TEMP2);
             }
         }
+
+        xSemaphoreGive(s_adc_mutex);
+
+        /* Yield to let lower-priority tasks (e.g. CLI adc commands) acquire
+         * the mutex. Without this delay the monitor task immediately re-takes
+         * it and starves the REPL. */
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }

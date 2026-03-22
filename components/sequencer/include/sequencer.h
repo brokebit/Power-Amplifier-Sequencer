@@ -1,9 +1,10 @@
 #pragma once
 
-#include "config.h"
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+
+#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -97,6 +98,12 @@ esp_err_t sequencer_clear_fault(void);
  * Return the fault code of the last fault, or SEQ_FAULT_NONE.
  */
 seq_fault_t sequencer_get_fault(void);
+
+/**
+ * Update the sequencer's config with new sequences and thresholds.
+ * Only safe in SEQ_STATE_RX. Returns ESP_ERR_INVALID_STATE otherwise.
+ */
+esp_err_t sequencer_update_config(const app_config_t *cfg);
 
 #ifdef __cplusplus
 }
