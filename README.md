@@ -16,8 +16,8 @@ Built with ESP-IDF (via PlatformIO) and FreeRTOS.
 - **Sensors (on ADS1115 at 0x49):**
   - AIN0: Forward RF power (directional coupler detector)
   - AIN1: Reflected RF power
-  - AIN2: Temperature right PA (100k NTC thermistor)
-  - AIN3: Temperature left PA (100k NTC thermistor)
+  - AIN2: Temperature Sensor 1 (100k NTC thermistor)
+  - AIN3: Temperature Sensor 2 (100k NTC thermistor)
 - **Inputs:**
   - PTT on GPIO 13 (active low)
   - 6 buttons (GPIO 4, 5, 6, 7, 48, 47) — BTN1 is emergency PA off, BTN2-6 spare
