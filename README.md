@@ -1,4 +1,4 @@
-# Sequencer-Claude
+# RF Power Amplifier Sequencer
 
 ESP32-S3 RF Power Amplifier TX/RX relay sequencer for 23cm band operation. Controls up to 6 relays in a configurable timed sequence to safely transition between receive and transmit states, with real-time monitoring of forward/reflected RF power, SWR, and PA temperatures.
 
