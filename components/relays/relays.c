@@ -6,7 +6,7 @@
 
 static const char *TAG = "relays";
 
-static const int relay_gpios[HW_RELAY_COUNT] = HW_RELAY_GPIOS;
+static const int s_relay_gpios[HW_RELAY_COUNT] = HW_RELAY_GPIOS;
 
 esp_err_t relays_init(void)
 {
@@ -19,7 +19,7 @@ esp_err_t relays_init(void)
     };
 
     for (int i = 0; i < HW_RELAY_COUNT; i++) {
-        cfg.pin_bit_mask |= (1ULL << relay_gpios[i]);
+        cfg.pin_bit_mask |= (1ULL << s_relay_gpios[i]);
     }
 
     esp_err_t err = gpio_config(&cfg);
@@ -41,7 +41,7 @@ esp_err_t relay_set(uint8_t relay_id, bool on)
         return ESP_ERR_INVALID_ARG;
     }
 
-    int gpio = relay_gpios[relay_id - 1];
+    int gpio = s_relay_gpios[relay_id - 1];
     gpio_set_level(gpio, on ? 1 : 0);
     system_state_set_relay(relay_id, on);
     ESP_LOGD(TAG, "Relay %d (GPIO %d) -> %s", relay_id, gpio, on ? "ON" : "OFF");
@@ -51,7 +51,7 @@ esp_err_t relay_set(uint8_t relay_id, bool on)
 void relays_all_off(void)
 {
     for (int i = 0; i < HW_RELAY_COUNT; i++) {
-        gpio_set_level(relay_gpios[i], 0);
+        gpio_set_level(s_relay_gpios[i], 0);
     }
     system_state_set_relays_all_off();
     ESP_LOGD(TAG, "All relays OFF");

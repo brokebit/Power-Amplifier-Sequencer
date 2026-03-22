@@ -22,7 +22,7 @@ typedef struct {
 } button_ctx_t;
 
 static button_ctx_t s_btns[HW_BUTTON_COUNT];
-static const int btn_gpios[HW_BUTTON_COUNT] = HW_BUTTON_GPIOS;
+static const int s_btn_gpios[HW_BUTTON_COUNT] = HW_BUTTON_GPIOS;
 
 /* ---------------------------------------------------------
  * Timer callback — runs in esp_timer task context (not ISR)
@@ -86,7 +86,7 @@ esp_err_t buttons_init(void)
         .pin_bit_mask = 0,
     };
     for (int i = 0; i < HW_BUTTON_COUNT; i++) {
-        cfg.pin_bit_mask |= (1ULL << btn_gpios[i]);
+        cfg.pin_bit_mask |= (1ULL << s_btn_gpios[i]);
     }
 
     esp_err_t err = gpio_config(&cfg);
@@ -104,7 +104,7 @@ esp_err_t buttons_init(void)
 
     /* Initialise per-button context, create debounce timers, register ISRs */
     for (int i = 0; i < HW_BUTTON_COUNT; i++) {
-        s_btns[i].gpio = btn_gpios[i];
+        s_btns[i].gpio = s_btn_gpios[i];
         s_btns[i].id   = (uint8_t)(i + 1);
         s_btns[i].cb   = NULL;
 
@@ -120,7 +120,7 @@ esp_err_t buttons_init(void)
             return err;
         }
 
-        err = gpio_isr_handler_add(btn_gpios[i], btn_isr_handler, &s_btns[i]);
+        err = gpio_isr_handler_add(s_btn_gpios[i], btn_isr_handler, &s_btns[i]);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "gpio_isr_handler_add BTN%d failed: %s", i + 1, esp_err_to_name(err));
             return err;
