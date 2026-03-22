@@ -206,7 +206,25 @@ Step format: `R<relay_id>:<on|off>:<delay_ms>` — e.g. `R3:on:50` means "energi
 |---------|-------------|
 | `adc read <0-3>` | Read a single ADC channel (voltage) |
 | `adc scan` | Read all 4 channels |
-| `monitor [interval_ms]` | Continuous status output (default 1000 ms, Enter to stop) |
+| `monitor [interval_ms] [csv]` | Continuous status output (default 1000 ms, Enter to stop). Optional `csv` for machine-readable output |
+
+### CSV Monitor Output
+
+When `csv` is passed to the `monitor` command, output is one comma-separated line per sample with no headers or status messages. Column order:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| ptt | int | PTT state: 1 = active, 0 = inactive |
+| state | string | Sequencer state: RX, SEQ_TX, TX, SEQ_RX, FAULT |
+| fault | string | Fault code: none, HIGH_SWR, OVER_TEMP1, OVER_TEMP2, EMERGENCY |
+| relay1..relay6 | int | Individual relay states: 1 = on, 0 = off |
+| fwd_w | float | Forward power in watts |
+| ref_w | float | Reflected power in watts |
+| swr | float | Standing wave ratio |
+| temp1_c | float | Temperature sensor 1 in degrees C |
+| temp2_c | float | Temperature sensor 2 in degrees C |
+
+Example: `0,RX,none,0,0,0,0,0,0,0.0,0.0,1.0,28.3,27.9`
 
 ## Development Setup
 
@@ -269,7 +287,6 @@ Each component under `components/` has its own `CMakeLists.txt`, `include/` dire
 
 ### TODO 
 - Figure out the RF Head voltage to db math and proper calibration.
-- Add a CSV mode to the monitor so applicaitons can consume the data
 - Make the PA relay configurable vs. hardcoded
 - Add ability to associate a name with a relay. i.e. R1 is LNA Coax Switch 
 - Implement the Nextion display driver and UI.
