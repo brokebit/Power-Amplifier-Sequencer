@@ -206,3 +206,9 @@ Sequencer/
 ```
 
 Each component under `components/` has its own `CMakeLists.txt`, `include/` directory with public headers, and a `README.md` with detailed documentation of its data structures, event flow, and architecture decisions.
+
+### TODO 
+- Figure out the RF Head voltage to db math and proper calibration. 
+- Implement the Nextion display driver and UI.
+- Add a REPL console command interface for live monitoring and config changes.
+- Implement a reset button to recover from EMERGENCY fault state without needing to power cycle.
