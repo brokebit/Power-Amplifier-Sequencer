@@ -212,3 +212,6 @@ Each component under `components/` has its own `CMakeLists.txt`, `include/` dire
 - Implement the Nextion display driver and UI.
 - Add a REPL console command interface for live monitoring and config changes.
 - Implement a reset button to recover from EMERGENCY fault state without needing to power cycle.
+- Add wifi and OTA updates for remote monitoring and firmware upgrades.
+- Implement an API for external control of the sequencer (e.g. from a PC or microcontroller) via WiFi. 
+- Add a web interface for monitoring and configuration over WiFi.
