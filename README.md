@@ -268,7 +268,10 @@ Sequencer/
 Each component under `components/` has its own `CMakeLists.txt`, `include/` directory with public headers, and a `README.md` with detailed documentation of its data structures, event flow, and architecture decisions.
 
 ### TODO 
-- Figure out the RF Head voltage to db math and proper calibration. 
+- Figure out the RF Head voltage to db math and proper calibration.
+- Add a CSV mode to the monitor so applicaitons can consume the data
+- Make the PA relay configurable vs. hardcoded
+- Add ability to associate a name with a relay. i.e. R1 is LNA Coax Switch 
 - Implement the Nextion display driver and UI.
 - Implement a reset button to recover from EMERGENCY fault state without needing to power cycle.
 - Add wifi and OTA updates for remote monitoring and firmware upgrades.
