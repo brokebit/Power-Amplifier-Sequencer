@@ -51,7 +51,9 @@ static void IRAM_ATTR alert1_isr(void *arg)
 static float voltage_to_temp_c(float v_adc, const app_config_t *cfg)
 {
     float denom = THERMISTOR_VCC - v_adc;
-    if (denom <= 0.0f || v_adc <= 0.0f) return NAN;
+    if (denom <= 0.0f || v_adc <= 0.0f) {
+        return NAN;
+    }
 
     float r_ntc = cfg->thermistor_r_series_ohms * v_adc / denom;
     float t_kelvin = 1.0f / (1.0f / 298.15f +
@@ -83,7 +85,9 @@ esp_err_t monitor_init(const app_config_t *cfg)
     memcpy(&s_cfg, cfg, sizeof(s_cfg));
 
     s_adc_queue = xQueueCreate(8, sizeof(uint8_t));
-    if (!s_adc_queue) return ESP_ERR_NO_MEM;
+    if (!s_adc_queue) {
+        return ESP_ERR_NO_MEM;
+    }
 
     /* I2C master bus */
     i2c_master_bus_config_t bus_cfg = {

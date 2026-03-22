@@ -21,7 +21,8 @@ extern "C" {
  * Fault codes — carried in seq_event_t.data for FAULT events
  * and stored for display / clear-fault logic.
  * --------------------------------------------------------- */
-typedef enum {
+typedef enum
+{
     SEQ_FAULT_NONE       = 0,
     SEQ_FAULT_HIGH_SWR   = 1,
     SEQ_FAULT_OVER_TEMP1 = 2,
@@ -32,7 +33,8 @@ typedef enum {
 /* ---------------------------------------------------------
  * Event types
  * --------------------------------------------------------- */
-typedef enum {
+typedef enum
+{
     SEQ_EVENT_PTT_ASSERT,        /* PTT line went active (low) */
     SEQ_EVENT_PTT_RELEASE,       /* PTT line released (high)   */
     SEQ_EVENT_FAULT,             /* Fault detected; data = seq_fault_t */
@@ -47,7 +49,8 @@ typedef struct {
 /* ---------------------------------------------------------
  * Sequencer states
  * --------------------------------------------------------- */
-typedef enum {
+typedef enum
+{
     SEQ_STATE_RX,             /* Idle — RX path active       */
     SEQ_STATE_SEQUENCING_TX,  /* Executing TX relay sequence */
     SEQ_STATE_TX,             /* TX active                   */

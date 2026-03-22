@@ -21,14 +21,16 @@ extern "C" {
 
 typedef struct ads1115_dev *ads1115_handle_t;
 
-typedef enum {
+typedef enum
+{
     ADS1115_CHANNEL_0 = 0,   /* AIN0 vs GND */
     ADS1115_CHANNEL_1,        /* AIN1 vs GND */
     ADS1115_CHANNEL_2,        /* AIN2 vs GND */
     ADS1115_CHANNEL_3,        /* AIN3 vs GND */
 } ads1115_channel_t;
 
-typedef enum {
+typedef enum
+{
     ADS1115_PGA_6144 = 0,   /* ±6.144 V — 187.5 µV/LSB */
     ADS1115_PGA_4096,        /* ±4.096 V — 125.0 µV/LSB */
     ADS1115_PGA_2048,        /* ±2.048 V —  62.5 µV/LSB */

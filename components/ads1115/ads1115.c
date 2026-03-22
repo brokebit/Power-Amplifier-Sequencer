@@ -55,7 +55,9 @@ esp_err_t ads1115_init(i2c_master_bus_handle_t bus, uint8_t addr,
                        ads1115_pga_t pga, ads1115_handle_t *out_handle)
 {
     struct ads1115_dev *dev = calloc(1, sizeof(*dev));
-    if (!dev) return ESP_ERR_NO_MEM;
+    if (!dev) {
+        return ESP_ERR_NO_MEM;
+    }
 
     dev->pga = pga;
 
@@ -119,7 +121,9 @@ float ads1115_raw_to_voltage(ads1115_handle_t handle, int16_t raw)
 
 void ads1115_deinit(ads1115_handle_t handle)
 {
-    if (!handle) return;
+    if (!handle) {
+        return;
+    }
     i2c_master_bus_rm_device(handle->i2c_dev);
     free(handle);
 }

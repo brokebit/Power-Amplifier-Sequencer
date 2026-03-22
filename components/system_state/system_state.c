@@ -13,12 +13,15 @@ static system_state_t s_state = {
 
 void system_state_set_relay(uint8_t relay_id, bool on)
 {
-    if (relay_id < 1 || relay_id > HW_RELAY_COUNT) return;
+    if (relay_id < 1 || relay_id > HW_RELAY_COUNT) {
+        return;
+    }
     portENTER_CRITICAL(&s_mux);
-    if (on)
+    if (on) {
         s_state.relay_states |=  (1u << (relay_id - 1));
-    else
+    } else {
         s_state.relay_states &= ~(1u << (relay_id - 1));
+    }
     portEXIT_CRITICAL(&s_mux);
 }
 
