@@ -26,7 +26,8 @@ void config_defaults(app_config_t *cfg)
 
     /* Fault thresholds */
     cfg->swr_fault_threshold     = 3.0f;
-    cfg->temp_fault_threshold_c  = 65.0f;
+    cfg->temp1_fault_threshold_c = 65.0f;
+    cfg->temp2_fault_threshold_c = 65.0f;
 
     /* Power meter calibration */
     cfg->fwd_power_cal_factor = 1.0f;

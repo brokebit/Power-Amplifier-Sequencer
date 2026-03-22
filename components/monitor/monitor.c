@@ -245,30 +245,30 @@ void monitor_task(void *arg)
             }
         }
 
-        /* ---- Temperature — right side PA ---- */
+        /* ---- Temperature 1 ---- */
         float t1_v = read_channel(ADS1115_CHANNEL_2);
         if (t1_v > 0.0f) {
             float temp_c = voltage_to_temp_c(t1_v, &s_cfg);
             last_temp1 = temp_c;
             system_state_set_sensors(last_fwd_w, last_ref_w, last_swr,
                                      last_temp1, last_temp2);
-            if (!isnan(temp_c) && temp_c > s_cfg.temp_fault_threshold_c) {
-                ESP_LOGW(TAG, "over-temp R: %.1f°C (threshold %.1f)",
-                         temp_c, s_cfg.temp_fault_threshold_c);
+            if (!isnan(temp_c) && temp_c > s_cfg.temp1_fault_threshold_c) {
+                ESP_LOGW(TAG, "over-temp 1: %.1f°C (threshold %.1f)",
+                         temp_c, s_cfg.temp1_fault_threshold_c);
                 inject_fault(SEQ_FAULT_OVER_TEMP1);
             }
         }
 
-        /* ---- Temperature — left side PA ---- */
+        /* ---- Temperature 2 ---- */
         float t2_v = read_channel(ADS1115_CHANNEL_3);
         if (t2_v > 0.0f) {
             float temp_c = voltage_to_temp_c(t2_v, &s_cfg);
             last_temp2 = temp_c;
             system_state_set_sensors(last_fwd_w, last_ref_w, last_swr,
                                      last_temp1, last_temp2);
-            if (!isnan(temp_c) && temp_c > s_cfg.temp_fault_threshold_c) {
-                ESP_LOGW(TAG, "over-temp L: %.1f°C (threshold %.1f)",
-                         temp_c, s_cfg.temp_fault_threshold_c);
+            if (!isnan(temp_c) && temp_c > s_cfg.temp2_fault_threshold_c) {
+                ESP_LOGW(TAG, "over-temp 2: %.1f°C (threshold %.1f)",
+                         temp_c, s_cfg.temp2_fault_threshold_c);
                 inject_fault(SEQ_FAULT_OVER_TEMP2);
             }
         }

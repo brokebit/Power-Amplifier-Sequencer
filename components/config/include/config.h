@@ -44,7 +44,8 @@ typedef struct {
 
     /* Fault thresholds */
     float      swr_fault_threshold;       /* default: 3.0  */
-    float      temp_fault_threshold_c;   /* default: 65.0 */
+    float      temp1_fault_threshold_c;  /* default: 65.0 */
+    float      temp2_fault_threshold_c;  /* default: 65.0 */
 
     /* Power meter calibration — P = cal_factor × V² */
     float      fwd_power_cal_factor;     /* default: 1.0  */

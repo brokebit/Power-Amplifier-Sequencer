@@ -14,7 +14,8 @@ static void print_config(const app_config_t *cfg)
 {
     printf("Fault thresholds:\n");
     printf("  swr_threshold   = %.1f\n", cfg->swr_fault_threshold);
-    printf("  temp_threshold  = %.1f C\n", cfg->temp_fault_threshold_c);
+    printf("  temp1_threshold = %.1f C\n", cfg->temp1_fault_threshold_c);
+    printf("  temp2_threshold = %.1f C\n", cfg->temp2_fault_threshold_c);
 
     printf("Power calibration:\n");
     printf("  fwd_cal         = %.4f\n", cfg->fwd_power_cal_factor);
@@ -56,7 +57,8 @@ typedef struct {
 
 static const config_key_t s_keys[] = {
     CFG_KEY("swr_threshold",  swr_fault_threshold,       1.0f,  99.0f),
-    CFG_KEY("temp_threshold", temp_fault_threshold_c,     0.0f, 200.0f),
+    CFG_KEY("temp1_threshold", temp1_fault_threshold_c,    0.0f, 200.0f),
+    CFG_KEY("temp2_threshold", temp2_fault_threshold_c,    0.0f, 200.0f),
     CFG_KEY("fwd_cal",        fwd_power_cal_factor,       0.001f, 1000.0f),
     CFG_KEY("ref_cal",        ref_power_cal_factor,       0.001f, 1000.0f),
     CFG_KEY("therm_beta",     thermistor_beta,            1.0f, 100000.0f),
