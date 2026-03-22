@@ -82,6 +82,73 @@ xTaskCreate(monitor_task, ...)     — priority 7
 - **Emergency shutdown hardcodes relay 2.** Safety-critical: PA relay is de-energised before running the full RX sequence, even if config is malformed.
 - **Configuration snapshot at init.** Both the sequencer and monitor copy `app_config_t` at init time. Runtime config changes require a restart.
 
+## Relay Sequences
+
+The sequencer transitions between RX and TX by executing a configurable list of relay steps. Each direction (TX and RX) has its own sequence of up to 8 steps, stored in NVS and loaded at boot.
+
+### Step Format
+
+Each step is a `seq_step_t`:
+
+| Field | Type | Description |
+|---|---|---|
+| `relay_id` | `uint8_t` | Relay number (1-6), matching schematic labels |
+| `state` | `uint8_t` | 1 = energise (ON), 0 = release (OFF) |
+| `delay_ms` | `uint16_t` | Milliseconds to wait *after* switching this relay, before the next step |
+
+### How It Works
+
+When PTT is asserted, the sequencer runs the TX step list top-to-bottom. When PTT is released, it runs the RX step list. The last step's `delay_ms` is typically 0 since there is nothing to wait for.
+
+If a fault or emergency event arrives mid-sequence, the sequencer aborts immediately — relay 2 (PA) is forced off first, then the full RX sequence runs to restore a safe state.
+
+### Default Sequences
+
+The factory defaults use a 3-step sequence for a typical PA setup (LNA isolate, path select, PA enable):
+
+**TX sequence** (PTT assert — transition to transmit):
+
+| Step | Relay | Action | Delay | Purpose |
+|------|-------|--------|-------|---------|
+| 1 | R3 | ON | 1000 ms | Isolate LNA from TX path |
+| 2 | R1 | ON | 1000 ms | Switch antenna path to TX |
+| 3 | R2 | ON | 0 ms | Enable PA |
+
+**RX sequence** (PTT release — transition to receive):
+
+| Step | Relay | Action | Delay | Purpose |
+|------|-------|--------|-------|---------|
+| 1 | R2 | OFF | 1000 ms | Disable PA first |
+| 2 | R1 | OFF | 1000 ms | Switch antenna path to RX |
+| 3 | R3 | OFF | 0 ms | Re-enable LNA path |
+
+The ordering is critical for safety: on TX, the LNA is isolated *before* the PA is enabled. On RX, the PA is disabled *before* the LNA path is restored. This prevents hot-switching and protects the LNA from transmit power.
+
+### Customising Sequences
+
+Sequences are defined in `config_defaults()` in [config.c](components/config/config.c) and stored as an NVS blob. To change the default sequences, edit the step arrays:
+
+```c
+/* Example: 4-step TX sequence with faster timing */
+cfg->tx_steps[0] = (seq_step_t){ .relay_id = 3, .state = 1, .delay_ms = 5 };
+cfg->tx_steps[1] = (seq_step_t){ .relay_id = 4, .state = 1, .delay_ms = 5 };
+cfg->tx_steps[2] = (seq_step_t){ .relay_id = 1, .state = 1, .delay_ms = 10 };
+cfg->tx_steps[3] = (seq_step_t){ .relay_id = 2, .state = 1, .delay_ms = 0 };
+cfg->tx_num_steps = 4;
+```
+
+After changing defaults, erase NVS and re-flash so the new defaults are written:
+
+```
+pio run -t erase && pio run -t upload
+```
+
+**Constraints:**
+- Maximum 8 steps per direction (`SEQ_MAX_STEPS`)
+- Relay IDs must be 1-6
+- The RX sequence should be the logical reverse of the TX sequence
+- Relay 2 is hardcoded as the PA relay in emergency shutdown — if your PA is on a different relay, update `emergency_shutdown()` in [sequencer.c](components/sequencer/sequencer.c)
+
 ## Development Setup
 
 ### Prerequisites
@@ -97,7 +164,7 @@ xTaskCreate(monitor_task, ...)     — priority 7
    - Restart VS Code when prompted
 
 2. **Open the project:**
-   - File > Open Folder > select the `Sequencer-Claude` directory
+   - File > Open Folder > select the directory where you cloned this repository
    - PlatformIO will auto-detect the `platformio.ini` and configure the environment
    - Wait for PlatformIO to finish downloading the ESP32-S3 toolchain and ESP-IDF framework (first time only)
 
@@ -120,7 +187,7 @@ xTaskCreate(monitor_task, ...)     — priority 7
 ### Project Structure
 
 ```
-Sequencer-Claude/
+Sequencer/
 ├── src/
 │   └── main.c                  # app_main — init sequence + console print loop
 ├── components/
