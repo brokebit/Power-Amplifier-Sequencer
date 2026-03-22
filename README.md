@@ -49,15 +49,15 @@ The system is organized as ESP-IDF components under `components/`. Two FreeRTOS 
 
 | Component | Purpose |
 |---|---|
-| `sequencer` | Central state machine (RX, SEQUENCING_TX, TX, SEQUENCING_RX, FAULT). Sole consumer of the event queue. Orchestrates relay switching in timed sequences. Latching fault mode requires explicit clearance. |
-| `monitor` | Periodic ADC sensing task. Reads 4 channels via single-shot conversions (~500 ms cycle at 8 SPS). Computes power (W), SWR, and temperatures (C). Injects fault events on threshold breach. |
-| `ads1115` | Low-level I2C driver for ADS1115. Single-shot trigger/wait/read pattern. Caller owns synchronisation. |
-| `system_state` | Shared blackboard (spinlock-protected struct). All subsystems publish here; consumers read atomic snapshots. |
-| `config` | NVS-backed runtime configuration. Relay sequences, fault thresholds, calibration factors, thermistor parameters. Writes defaults on first boot. |
-| `relays` | GPIO driver for 6 relays. 1-indexed IDs matching schematic labels. |
-| `ptt` | PTT GPIO interrupt driver. Both-edge ISR posts assert/release events to sequencer queue. |
-| `buttons` | Debounced button driver (50 ms timer). BTN1 wired to emergency PA off event. BTN2-6 support optional callbacks. |
-| `hw_config` | Header-only pin definitions and peripheral addresses. |
+| [sequencer](components/sequencer/README.md) | Central state machine (RX, SEQUENCING_TX, TX, SEQUENCING_RX, FAULT). Sole consumer of the event queue. Orchestrates relay switching in timed sequences. Latching fault mode requires explicit clearance. |
+| [monitor](components/monitor/README.md) | Periodic ADC sensing task. Reads 4 channels via single-shot conversions (~500 ms cycle at 8 SPS). Computes power (W), SWR, and temperatures (C). Injects fault events on threshold breach. |
+| [ads1115](components/ads1115/README.md) | Low-level I2C driver for ADS1115. Single-shot trigger/wait/read pattern. Caller owns synchronisation. |
+| [system_state](components/system_state/README.md) | Shared blackboard (spinlock-protected struct). All subsystems publish here; consumers read atomic snapshots. |
+| [config](components/config/) | NVS-backed runtime configuration. Relay sequences, fault thresholds, calibration factors, thermistor parameters. Writes defaults on first boot. |
+| [relays](components/relays/) | GPIO driver for 6 relays. 1-indexed IDs matching schematic labels. |
+| [ptt](components/ptt/) | PTT GPIO interrupt driver. Both-edge ISR posts assert/release events to sequencer queue. |
+| [buttons](components/buttons/) | Debounced button driver (50 ms timer). BTN1 wired to emergency PA off event. BTN2-6 support optional callbacks. |
+| [hw_config](components/hw_config/) | Header-only pin definitions and peripheral addresses. |
 
 ### Initialization Order
 
