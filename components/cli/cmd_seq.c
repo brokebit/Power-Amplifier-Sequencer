@@ -19,9 +19,11 @@ static void print_sequence(const char *label, const seq_step_t *steps, uint8_t n
         printf("  (empty)\n");
         return;
     }
+    const app_config_t *cfg = cli_get_config();
     for (int i = 0; i < num; i++) {
-        printf("  %d: R%d %s  %dms\n", i + 1,
-               steps[i].relay_id,
+        char label[24];
+        config_relay_label(cfg, steps[i].relay_id, label, sizeof(label));
+        printf("  %d: %-12s %s  %dms\n", i + 1, label,
                steps[i].state ? "ON" : "OFF",
                steps[i].delay_ms);
     }

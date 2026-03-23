@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 
 #include "esp_log.h"
@@ -88,6 +89,18 @@ esp_err_t config_init(app_config_t *cfg)
 
     nvs_close(handle);
     return err;
+}
+
+const char *config_relay_label(const app_config_t *cfg, uint8_t relay_id,
+                               char *buf, size_t buf_len)
+{
+    if (relay_id >= 1 && relay_id <= HW_RELAY_COUNT
+        && cfg->relay_names[relay_id - 1][0] != '\0') {
+        snprintf(buf, buf_len, "R%d/%s", relay_id, cfg->relay_names[relay_id - 1]);
+    } else {
+        snprintf(buf, buf_len, "R%d", relay_id);
+    }
+    return buf;
 }
 
 esp_err_t config_save(const app_config_t *cfg)

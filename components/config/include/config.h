@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "hw_config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,6 +14,7 @@ extern "C" {
  * ========================================================= */
 
 #define SEQ_MAX_STEPS       8    /* Max relay steps per TX or RX sequence */
+#define CFG_RELAY_NAME_LEN  16   /* Max relay name length including null terminator */
 
 /* NVS namespace and blob key */
 #define CFG_NVS_NAMESPACE   "seq_cfg"
@@ -58,6 +60,9 @@ typedef struct {
     float      thermistor_beta;          /* default: 3950   */
     float      thermistor_r0_ohms;       /* default: 100000 (at 25°C) */
     float      thermistor_r_series_ohms; /* default: 100000 */
+
+    /* Relay display names — empty string means no alias */
+    char       relay_names[HW_RELAY_COUNT][CFG_RELAY_NAME_LEN];
 } app_config_t;
 
 /* ---------------------------------------------------------
@@ -80,6 +85,13 @@ esp_err_t config_save(const app_config_t *cfg);
  * Fill *cfg with factory defaults without touching NVS.
  */
 void config_defaults(app_config_t *cfg);
+
+/**
+ * Format relay label into buf. Returns buf.
+ * With name set: "R2/PA". Without: "R2".
+ */
+const char *config_relay_label(const app_config_t *cfg, uint8_t relay_id,
+                               char *buf, size_t buf_len);
 
 #ifdef __cplusplus
 }

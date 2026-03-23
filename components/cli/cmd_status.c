@@ -2,6 +2,8 @@
 
 #include "esp_console.h"
 
+#include "cli.h"
+#include "config.h"
 #include "hw_config.h"
 #include "sequencer.h"
 #include "system_state.h"
@@ -33,9 +35,12 @@ static int cmd_status_handler(int argc, char **argv)
            s_fault_names[ss.seq_fault]);
 
     printf("Relays:");
+    const app_config_t *cfg = cli_get_config();
     for (int i = 0; i < HW_RELAY_COUNT; i++) {
         bool on = (ss.relay_states >> i) & 1;
-        printf(" [R%d:%s]", i + 1, on ? "ON" : "off");
+        char label[24];
+        config_relay_label(cfg, i + 1, label, sizeof(label));
+        printf(" [%s:%s]", label, on ? "ON" : "off");
     }
     printf("\n");
 

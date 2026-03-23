@@ -5,6 +5,7 @@
 #include "esp_console.h"
 
 #include "config.h"
+#include "hw_config.h"
 
 #include "cli.h"
 
@@ -12,11 +13,14 @@
 
 static void print_config(const app_config_t *cfg)
 {
+    char label[24];
+
     printf("Fault settings:\n");
     printf("  swr_threshold   = %.1f\n", cfg->swr_fault_threshold);
     printf("  temp1_threshold = %.1f C\n", cfg->temp1_fault_threshold_c);
     printf("  temp2_threshold = %.1f C\n", cfg->temp2_fault_threshold_c);
-    printf("  pa_relay        = %d\n", cfg->pa_relay_id);
+    config_relay_label(cfg, cfg->pa_relay_id, label, sizeof(label));
+    printf("  pa_relay        = %s\n", label);
 
     printf("Power calibration:\n");
     printf("  fwd_cal         = %.4f\n", cfg->fwd_power_cal_factor);
@@ -27,18 +31,27 @@ static void print_config(const app_config_t *cfg)
     printf("  therm_r0        = %.0f ohms\n", cfg->thermistor_r0_ohms);
     printf("  therm_rseries   = %.0f ohms\n", cfg->thermistor_r_series_ohms);
 
+    printf("Relay names:\n");
+    for (int i = 0; i < HW_RELAY_COUNT; i++) {
+        if (cfg->relay_names[i][0] != '\0') {
+            printf("  R%d = %s\n", i + 1, cfg->relay_names[i]);
+        } else {
+            printf("  R%d = (none)\n", i + 1);
+        }
+    }
+
     printf("TX sequence (%d steps):\n", cfg->tx_num_steps);
     for (int i = 0; i < cfg->tx_num_steps; i++) {
-        printf("  %d: R%d %s  %dms\n", i + 1,
-               cfg->tx_steps[i].relay_id,
+        config_relay_label(cfg, cfg->tx_steps[i].relay_id, label, sizeof(label));
+        printf("  %d: %-12s %s  %dms\n", i + 1, label,
                cfg->tx_steps[i].state ? "ON" : "OFF",
                cfg->tx_steps[i].delay_ms);
     }
 
     printf("RX sequence (%d steps):\n", cfg->rx_num_steps);
     for (int i = 0; i < cfg->rx_num_steps; i++) {
-        printf("  %d: R%d %s  %dms\n", i + 1,
-               cfg->rx_steps[i].relay_id,
+        config_relay_label(cfg, cfg->rx_steps[i].relay_id, label, sizeof(label));
+        printf("  %d: %-12s %s  %dms\n", i + 1, label,
                cfg->rx_steps[i].state ? "ON" : "OFF",
                cfg->rx_steps[i].delay_ms);
     }

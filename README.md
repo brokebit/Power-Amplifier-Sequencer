@@ -192,12 +192,42 @@ Config keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `pa_relay`, 
 
 Step format: `R<relay_id>:<on|off>:<delay_ms>` — e.g. `R3:on:50` means "energise relay 3, wait 50 ms".
 
+### Relay Aliases
+
+Each relay can have an optional display name to make output more readable. Aliases are display-only — commands and sequence definitions still use R1-R6.
+
+```
+seq> relay name 2 PA
+R2 = PA
+Use 'config save' to persist
+
+seq> relay name 3 LNA
+R3 = LNA
+Use 'config save' to persist
+
+seq> status
+PTT: off   State: RX     Fault: none
+Relays: [R1:off] [R2/PA:off] [R3/LNA:off] [R4:off] [R5:off] [R6:off]
+...
+
+seq> seq tx show
+TX sequence (3 steps):
+  1: R3/LNA       ON  1000ms
+  2: R1            ON  1000ms
+  3: R2/PA         ON  0ms
+```
+
+Aliases are stored in the main config blob and persist across reboots after `config save`. Use `relay name <1-6>` (no label) to clear an alias, or `config defaults` to clear all.
+
 ### Relay & Fault Control
 
 | Command | Description |
 |---------|-------------|
-| `relay show` | Display all relay states |
+| `relay show` | Display all relay states (with aliases if set) |
 | `relay <1-6> on\|off` | Force a single relay (bypasses sequencer — use with caution) |
+| `relay name` | Show all relay name aliases |
+| `relay name <1-6> <label>` | Set a display alias for a relay (max 15 chars) |
+| `relay name <1-6>` | Clear a relay's alias |
 | `fault show` | Show sequencer state and fault code |
 | `fault clear` | Clear a latched fault, return to RX |
 | `fault inject <swr\|temp1\|temp2\|emergency>` | Inject a test fault event |
@@ -305,7 +335,6 @@ Each component under `components/` has its own `CMakeLists.txt`, `include/` dire
 
 ### TODO
 - Figure out the RF Head voltage to db math and proper calibration.
-- Add ability to associate a name with a relay. i.e. R1 is LNA Coax Switch
 - Implement the Nextion display driver and UI.
 - Implement a reset button to recover from EMERGENCY fault state without needing to power cycle.
 - Add OTA updates for remote firmware upgrades over WiFi.
