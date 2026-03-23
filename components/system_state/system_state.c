@@ -59,6 +59,15 @@ void system_state_set_sensors(float fwd_w, float ref_w, float swr,
     portEXIT_CRITICAL(&s_mux);
 }
 
+void system_state_set_wifi(bool connected, uint32_t ip_addr, int8_t rssi)
+{
+    portENTER_CRITICAL(&s_mux);
+    s_state.wifi_connected = connected;
+    s_state.wifi_ip_addr   = ip_addr;
+    s_state.wifi_rssi      = rssi;
+    portEXIT_CRITICAL(&s_mux);
+}
+
 /* ---- reader ------------------------------------------------------------- */
 
 void system_state_get(system_state_t *out)

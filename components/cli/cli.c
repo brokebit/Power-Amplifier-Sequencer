@@ -22,6 +22,7 @@ void register_cmd_fault(void);
 void register_cmd_seq(void);
 void register_cmd_adc(void);
 void register_cmd_monitor(void);
+void register_cmd_wifi(void);
 
 esp_err_t cli_init(app_config_t *cfg)
 {
@@ -50,6 +51,7 @@ esp_err_t cli_init(app_config_t *cfg)
     register_cmd_seq();
     register_cmd_adc();
     register_cmd_monitor();
+    register_cmd_wifi();
 
     /* Suppress logging by default so the REPL prompt stays clean */
     esp_log_level_set("*", ESP_LOG_NONE);

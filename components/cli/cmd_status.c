@@ -45,6 +45,18 @@ static int cmd_status_handler(int argc, char **argv)
     printf("Temp1: %.1fC  Temp2: %.1fC\n",
            ss.temp1_c, ss.temp2_c);
 
+    if (ss.wifi_connected) {
+        uint32_t ip = ss.wifi_ip_addr;
+        printf("WiFi: connected  IP: %lu.%lu.%lu.%lu  RSSI: %d dBm\n",
+               (unsigned long)(ip & 0xFF),
+               (unsigned long)((ip >> 8) & 0xFF),
+               (unsigned long)((ip >> 16) & 0xFF),
+               (unsigned long)((ip >> 24) & 0xFF),
+               ss.wifi_rssi);
+    } else {
+        printf("WiFi: disconnected\n");
+    }
+
     return 0;
 }
 

@@ -9,6 +9,7 @@
 #include "ptt.h"
 #include "relays.h"
 #include "sequencer.h"
+#include "wifi_sta.h"
 
 static const char *TAG = "main";
 
@@ -32,6 +33,9 @@ void app_main(void)
 
     /* --- monitor: I2C bus, both ADS1115s, ALERT/RDY ISRs --- */
     ESP_ERROR_CHECK(monitor_init(&cfg));
+
+    /* --- WiFi: STA mode, auto-connects if credentials saved --- */
+    ESP_ERROR_CHECK(app_wifi_init());
 
     /* --- start tasks --- */
     xTaskCreate(sequencer_task, "sequencer", 4096, NULL, 10, NULL);

@@ -42,6 +42,11 @@ typedef struct {
     float       swr;
     float       temp1_c;
     float       temp2_c;
+
+    /* WiFi status */
+    bool        wifi_connected;
+    uint32_t    wifi_ip_addr;       /* network byte order */
+    int8_t      wifi_rssi;
 } system_state_t;
 
 /* ---------------------------------------------------------
@@ -53,6 +58,7 @@ void system_state_set_ptt(bool active);
 void system_state_set_sequencer(uint8_t state, uint8_t fault);
 void system_state_set_sensors(float fwd_w, float ref_w, float swr,
                               float temp1_c, float temp2_c);
+void system_state_set_wifi(bool connected, uint32_t ip_addr, int8_t rssi);
 
 /* ---------------------------------------------------------
  * Reader — copies a consistent snapshot into *out
