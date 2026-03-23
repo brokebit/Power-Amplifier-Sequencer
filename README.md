@@ -10,7 +10,7 @@ Built with ESP-IDF (via PlatformIO) and FreeRTOS.
 - **ADC:** Two ADS1115 16-bit ADCs on I2C (0x48 reserved, 0x49 active)
 - **Relays:** 6 relay outputs (GPIOs 39, 40, 41, 42, 11, 12)
   - Relay 1: RX/TX path select
-  - Relay 2: PA on/off (hardcoded emergency shutdown target)
+  - Relay 2: PA on/off (configurable emergency shutdown target, default)
   - Relay 3: LNA isolate
   - Relays 4-6: Spare
 - **Sensors (on ADS1115 at 0x49):**
@@ -57,7 +57,8 @@ The system is organized as ESP-IDF components under `components/`. Two FreeRTOS 
 | [relays](components/relays/) | GPIO driver for 6 relays. 1-indexed IDs matching schematic labels. |
 | [ptt](components/ptt/) | PTT GPIO interrupt driver. Both-edge ISR posts assert/release events to sequencer queue. |
 | [buttons](components/buttons/) | Debounced button driver (50 ms timer). BTN1 wired to emergency PA off event. BTN2-6 support optional callbacks. |
-| [cli](components/cli/README.md) | Interactive serial console (REPL) on UART0 using esp_console. Runtime inspection, configuration, sequence editing, ADC diagnostics, and relay control. |
+| [cli](components/cli/README.md) | Interactive serial console (REPL) on UART0 using esp_console. Runtime inspection, configuration, sequence editing, ADC diagnostics, relay control, and WiFi management. |
+| [wifi_sta](components/wifi_sta/) | WiFi Station mode manager. NVS-backed credentials in separate namespace. Auto-connects on boot with exponential backoff retry. Publishes connection state to system_state. |
 | [hw_config](components/hw_config/) | Header-only pin definitions and peripheral addresses. |
 
 ### Initialization Order
@@ -71,6 +72,7 @@ sequencer_init()   — create event queue (needed by PTT, buttons, monitor)
 ptt_init()         — install GPIO ISR service, arm PTT interrupt
 buttons_init()     — uses already-installed ISR service
 monitor_init()     — I2C bus, ADS1115s, ALERT/RDY ISRs
+app_wifi_init()    — event loop, netif, WiFi driver; auto-connect if creds saved
 xTaskCreate(sequencer_task, ...)   — priority 10
 xTaskCreate(monitor_task, ...)     — priority 7
 cli_init()         — register commands, suppress logging, start REPL task (pri 5)
@@ -81,7 +83,7 @@ cli_init()         — register commands, suppress logging, start REPL task (pri
 - **Single-consumer event queue.** All event sources post to one FreeRTOS queue; only `sequencer_task` reads it. No mutexes needed for relay control or state transitions.
 - **Blackboard pattern for observable state.** `system_state` aggregates readings from all subsystems into a spinlock-protected struct. Consumers (display, console logger) get consistent atomic snapshots.
 - **Latching faults.** The sequencer enters FAULT state and ignores all events until `sequencer_clear_fault()` is called externally. The monitor sends fault events every cycle — the sequencer is responsible for deduplication.
-- **Emergency shutdown hardcodes relay 2.** Safety-critical: PA relay is de-energised before running the full RX sequence, even if config is malformed.
+- **Emergency shutdown uses configurable PA relay.** Safety-critical: the PA relay (configurable via `config set pa_relay <1-6>`, default: 2) is de-energised before running the full RX sequence.
 - **Configuration snapshot at init, hot-swappable via CLI.** Both the sequencer and monitor copy `app_config_t` at init time. The CLI can modify config in-place and push updates via `sequencer_update_config()` and `monitor_update_config()` without restarting.
 
 ## Relay Sequences
@@ -102,7 +104,7 @@ Each step is a `seq_step_t`:
 
 When PTT is asserted, the sequencer runs the TX step list top-to-bottom. When PTT is released, it runs the RX step list. The last step's `delay_ms` is typically 0 since there is nothing to wait for.
 
-If a fault or emergency event arrives mid-sequence, the sequencer aborts immediately — relay 2 (PA) is forced off first, then the full RX sequence runs to restore a safe state.
+If a fault or emergency event arrives mid-sequence, the sequencer aborts immediately — the PA relay (configurable, default R2) is forced off first, then the full RX sequence runs to restore a safe state.
 
 ### Default Sequences
 
@@ -159,7 +161,7 @@ On boot, a `seq> ` prompt is available on UART0 (USB serial). ESP_LOG output is 
 
 | Command | Description |
 |---------|-------------|
-| `status` | One-shot dump of PTT, state, fault, relays, power, SWR, temps |
+| `status` | One-shot dump of PTT, state, fault, relays, power, SWR, temps, WiFi |
 | `version` | Firmware name/version, IDF version, chip info |
 | `reboot` | Restart the ESP32 |
 | `log on` | Enable log output (INFO level) |
@@ -207,6 +209,21 @@ Step format: `R<relay_id>:<on|off>:<delay_ms>` — e.g. `R3:on:50` means "energi
 | `adc read <0-3>` | Read a single ADC channel (voltage) |
 | `adc scan` | Read all 4 channels |
 | `monitor [interval_ms] [csv]` | Continuous status output (default 1000 ms, Enter to stop). Optional `csv` for machine-readable output |
+
+### WiFi
+
+| Command | Description |
+|---------|-------------|
+| `wifi status` | Show connection state, IP address, RSSI, auto-connect setting |
+| `wifi config <ssid> [password]` | Save WiFi credentials to NVS (password optional for open networks) |
+| `wifi connect` | Connect using saved credentials |
+| `wifi disconnect` | Disconnect from AP (does not erase credentials) |
+| `wifi scan` | Scan and list available networks |
+| `wifi enable` | Enable auto-connect on boot (default) |
+| `wifi disable` | Disable auto-connect and disconnect |
+| `wifi erase` | Erase saved credentials from NVS |
+
+WiFi credentials are stored in a separate NVS namespace (`wifi_cfg`) from the main config, so they survive `config defaults` resets and `app_config_t` struct changes.
 
 ### CSV Monitor Output
 
@@ -277,7 +294,8 @@ Sequencer/
 │   ├── ptt/                    # PTT interrupt driver
 │   ├── relays/                 # Relay GPIO driver
 │   ├── sequencer/              # Core state machine
-│   └── system_state/           # Shared observable state blackboard
+│   ├── system_state/           # Shared observable state blackboard
+│   └── wifi_sta/               # WiFi Station mode manager
 ├── platformio.ini              # PlatformIO build config
 ├── sdkconfig.defaults          # ESP-IDF Kconfig overrides (8MB flash)
 └── CMakeLists.txt              # Top-level CMake (required by ESP-IDF)
@@ -285,11 +303,11 @@ Sequencer/
 
 Each component under `components/` has its own `CMakeLists.txt`, `include/` directory with public headers, and a `README.md` with detailed documentation of its data structures, event flow, and architecture decisions.
 
-### TODO 
+### TODO
 - Figure out the RF Head voltage to db math and proper calibration.
-- Add ability to associate a name with a relay. i.e. R1 is LNA Coax Switch 
+- Add ability to associate a name with a relay. i.e. R1 is LNA Coax Switch
 - Implement the Nextion display driver and UI.
 - Implement a reset button to recover from EMERGENCY fault state without needing to power cycle.
-- Add wifi and OTA updates for remote monitoring and firmware upgrades.
-- Implement an API for external control of the sequencer (e.g. from a PC or microcontroller) via WiFi. 
+- Add OTA updates for remote firmware upgrades over WiFi.
+- Implement an API for external control of the sequencer (e.g. from a PC or microcontroller) via WiFi.
 - Add a web interface for monitoring and configuration over WiFi.

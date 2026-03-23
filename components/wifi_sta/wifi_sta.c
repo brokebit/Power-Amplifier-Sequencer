@@ -1,24 +1,27 @@
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 
-#include "esp_log.h"
-#include "esp_wifi.h"
 #include "esp_event.h"
+#include "esp_log.h"
 #include "esp_netif.h"
+#include "esp_wifi.h"
 #include "nvs.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/timers.h"
 
 #include "wifi_sta.h"
+
 #include "system_state.h"
 
 static const char *TAG = "wifi_sta";
 
-/* NVS keys */
-#define NVS_KEY_SSID    "ssid"
-#define NVS_KEY_PASS    "pass"
-#define NVS_KEY_ENABLED "enabled"
+/* NVS namespace and keys */
+#define WIFI_NVS_NAMESPACE "wifi_cfg"
+#define NVS_KEY_SSID       "ssid"
+#define NVS_KEY_PASS       "pass"
+#define NVS_KEY_ENABLED    "enabled"
 
 /* Retry backoff */
 #define RETRY_INITIAL_MS    1000
@@ -26,12 +29,12 @@ static const char *TAG = "wifi_sta";
 #define RETRY_BACKOFF       2
 
 /* Internal state */
-static esp_netif_t       *s_netif       = NULL;
-static EventGroupHandle_t s_wifi_eg     = NULL;
-static TimerHandle_t      s_retry_timer = NULL;
-static uint32_t           s_retry_ms    = RETRY_INITIAL_MS;
-static bool               s_connecting  = false;
-static uint32_t           s_ip_addr     = 0;
+static esp_netif_t *s_netif = NULL;
+static EventGroupHandle_t s_wifi_eg = NULL;
+static TimerHandle_t s_retry_timer = NULL;
+static uint32_t s_retry_ms = RETRY_INITIAL_MS;
+static bool s_connecting = false;
+static uint32_t s_ip_addr = 0;
 
 #define CONNECTED_BIT  BIT0
 
@@ -182,7 +185,9 @@ esp_err_t app_wifi_set_credentials(const char *ssid, const char *pass)
 
     nvs_handle_t h;
     esp_err_t err = nvs_open(WIFI_NVS_NAMESPACE, NVS_READWRITE, &h);
-    if (err != ESP_OK) return err;
+    if (err != ESP_OK) {
+        return err;
+    }
 
     err = nvs_set_str(h, NVS_KEY_SSID, ssid);
     if (err == ESP_OK) {
@@ -225,7 +230,9 @@ esp_err_t app_wifi_erase_credentials(void)
 
     nvs_handle_t h;
     esp_err_t err = nvs_open(WIFI_NVS_NAMESPACE, NVS_READWRITE, &h);
-    if (err != ESP_OK) return err;
+    if (err != ESP_OK) {
+        return err;
+    }
 
     nvs_erase_key(h, NVS_KEY_SSID);
     nvs_erase_key(h, NVS_KEY_PASS);
@@ -237,7 +244,9 @@ esp_err_t app_wifi_erase_credentials(void)
 
 bool app_wifi_is_connected(void)
 {
-    if (!s_wifi_eg) return false;
+    if (!s_wifi_eg) {
+        return false;
+    }
     return (xEventGroupGetBits(s_wifi_eg) & CONNECTED_BIT) != 0;
 }
 
@@ -271,7 +280,9 @@ esp_err_t app_wifi_scan(void)
     };
 
     esp_err_t err = esp_wifi_scan_start(&scan_cfg, true);
-    if (err != ESP_OK) return err;
+    if (err != ESP_OK) {
+        return err;
+    }
 
     uint16_t count = 0;
     esp_wifi_scan_get_ap_num(&count);
@@ -282,7 +293,9 @@ esp_err_t app_wifi_scan(void)
     }
 
     wifi_ap_record_t *records = malloc(count * sizeof(wifi_ap_record_t));
-    if (!records) return ESP_ERR_NO_MEM;
+    if (!records) {
+        return ESP_ERR_NO_MEM;
+    }
 
     esp_wifi_scan_get_ap_records(&count, records);
 
@@ -312,7 +325,9 @@ esp_err_t app_wifi_set_enabled(bool enabled)
 {
     nvs_handle_t h;
     esp_err_t err = nvs_open(WIFI_NVS_NAMESPACE, NVS_READWRITE, &h);
-    if (err != ESP_OK) return err;
+    if (err != ESP_OK) {
+        return err;
+    }
 
     err = nvs_set_u8(h, NVS_KEY_ENABLED, enabled ? 1 : 0);
     if (err == ESP_OK) {

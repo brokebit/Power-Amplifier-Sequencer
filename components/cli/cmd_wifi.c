@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "esp_console.h"
+#include "esp_err.h"
 
 #include "wifi_sta.h"
 #include "system_state.h"

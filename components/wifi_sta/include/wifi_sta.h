@@ -6,10 +6,6 @@
 
 #include "esp_err.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* =========================================================
  * wifi_sta.h — WiFi Station mode manager
  *
@@ -21,7 +17,9 @@ extern "C" {
  * with ESP-IDF internal wifi_sta_* symbols.
  * ========================================================= */
 
-#define WIFI_NVS_NAMESPACE  "wifi_cfg"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Initialise WiFi subsystem: event loop, netif, driver.
@@ -46,7 +44,7 @@ esp_err_t app_wifi_set_credentials(const char *ssid, const char *pass);
 esp_err_t app_wifi_connect(void);
 
 /**
- * Disconnect from current AP.  Does not erase credentials.
+ * Disconnect from current AP. Does not erase credentials.
  */
 esp_err_t app_wifi_disconnect(void);
 
@@ -78,7 +76,7 @@ esp_err_t app_wifi_get_rssi(int8_t *rssi);
 esp_err_t app_wifi_scan(void);
 
 /**
- * Enable or disable auto-connect on boot.  Persisted to NVS.
+ * Enable or disable auto-connect on boot. Persisted to NVS.
  */
 esp_err_t app_wifi_set_enabled(bool enabled);
 
