@@ -59,6 +59,7 @@ The system is organized as ESP-IDF components under `components/`. Two FreeRTOS 
 | [buttons](components/buttons/) | Debounced button driver (50 ms timer). BTN1 wired to emergency PA off event. BTN2-6 support optional callbacks. |
 | [cli](components/cli/README.md) | Interactive serial console (REPL) on UART0 using esp_console. Runtime inspection, configuration, sequence editing, ADC diagnostics, relay control, and WiFi management. |
 | [wifi_sta](components/wifi_sta/) | WiFi Station mode manager. NVS-backed credentials in separate namespace. Auto-connects on boot with exponential backoff retry. Publishes connection state to system_state. |
+| [ota](components/ota/) | OTA firmware update manager. HTTPS pull from GitHub Releases or direct URL. Dual-partition rollback support with automatic boot validation. NVS-backed repo configuration. |
 | [hw_config](components/hw_config/) | Header-only pin definitions and peripheral addresses. |
 
 ### Initialization Order
@@ -76,6 +77,7 @@ app_wifi_init()    — event loop, netif, WiFi driver; auto-connect if creds sav
 xTaskCreate(sequencer_task, ...)   — priority 10
 xTaskCreate(monitor_task, ...)     — priority 7
 cli_init()         — register commands, suppress logging, start REPL task (pri 5)
+app_ota_init()     — validate firmware after OTA update (rollback gate)
 ```
 
 ### Key Design Decisions
@@ -255,6 +257,39 @@ Aliases are stored in the main config blob and persist across reboots after `con
 
 WiFi credentials are stored in a separate NVS namespace (`wifi_cfg`) from the main config, so they survive `config defaults` resets and `app_config_t` struct changes.
 
+### OTA Firmware Updates
+
+| Command | Description |
+|---------|-------------|
+| `ota status` | Show running partition, firmware version, app state, other slot info |
+| `ota repo` | Show configured GitHub repo |
+| `ota repo <owner/repo>` | Set GitHub repo for version shorthand (saved to NVS) |
+| `ota update latest` | Download latest release from configured GitHub repo |
+| `ota update <vX.Y.Z>` | Download a specific release version |
+| `ota update <https://...>` | Download firmware from any HTTPS URL |
+| `ota rollback` | Revert to previously running firmware and reboot |
+| `ota validate` | Manually mark current firmware as valid |
+
+The device uses a dual-partition OTA scheme (ota_0 / ota_1, 3 MB each). After an OTA update and reboot, the new firmware must validate itself — `app_ota_init()` does this automatically at the end of boot if all subsystems initialise successfully. If the new firmware crashes before validation, the bootloader automatically rolls back to the previous working firmware.
+
+GitHub release URLs support version shorthand once a repo is configured:
+
+```
+seq> ota repo myuser/sequencer-fw
+GitHub repo set to 'myuser/sequencer-fw'
+
+seq> ota update latest
+OTA update from: https://github.com/myuser/sequencer-fw/releases/latest/download/firmware.bin
+Starting download...
+  Progress: 10% (104857 / 1048576 bytes)
+  ...
+OTA update successful! Rebooting in 2 seconds...
+```
+
+OTA repo configuration is stored in a separate NVS namespace (`ota_cfg`) and survives `config defaults` resets.
+
+**Note:** The first flash after enabling OTA must be done over USB (`pio run -t upload`) to write the new partition table and bootloader. After that, firmware can be updated over WiFi.
+
 ### CSV Monitor Output
 
 When `csv` is passed to the `monitor` command, output is one comma-separated line per sample with no headers or status messages. Column order:
@@ -325,9 +360,11 @@ Sequencer/
 │   ├── relays/                 # Relay GPIO driver
 │   ├── sequencer/              # Core state machine
 │   ├── system_state/           # Shared observable state blackboard
-│   └── wifi_sta/               # WiFi Station mode manager
+│   ├── wifi_sta/               # WiFi Station mode manager
+│   └── ota/                    # OTA firmware update manager
+├── partitions.csv              # Custom partition table (dual OTA + SPIFFS)
 ├── platformio.ini              # PlatformIO build config
-├── sdkconfig.defaults          # ESP-IDF Kconfig overrides (8MB flash)
+├── sdkconfig.defaults          # ESP-IDF Kconfig overrides (8MB flash, OTA rollback)
 └── CMakeLists.txt              # Top-level CMake (required by ESP-IDF)
 ```
 
@@ -337,6 +374,5 @@ Each component under `components/` has its own `CMakeLists.txt`, `include/` dire
 - Figure out the RF Head voltage to db math and proper calibration.
 - Implement the Nextion display driver and UI.
 - Implement a reset button to recover from EMERGENCY fault state without needing to power cycle.
-- Add OTA updates for remote firmware upgrades over WiFi.
 - Implement an API for external control of the sequencer (e.g. from a PC or microcontroller) via WiFi.
 - Add a web interface for monitoring and configuration over WiFi.

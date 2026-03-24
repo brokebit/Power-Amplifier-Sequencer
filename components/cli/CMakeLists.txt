@@ -10,6 +10,7 @@ idf_component_register(
          "cmd_adc.c"
          "cmd_monitor.c"
          "cmd_wifi.c"
+         "cmd_ota.c"
     INCLUDE_DIRS "include"
     REQUIRES console
              config
@@ -20,6 +21,7 @@ idf_component_register(
              hw_config
              relays
              wifi_sta
+             ota
     PRIV_REQUIRES esp_app_format
                   driver
 )

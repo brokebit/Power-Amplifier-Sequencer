@@ -10,6 +10,7 @@
 #include "relays.h"
 #include "sequencer.h"
 #include "wifi_sta.h"
+#include "ota.h"
 
 static const char *TAG = "main";
 
@@ -45,4 +46,7 @@ void app_main(void)
 
     /* --- CLI REPL on UART0 (runs as its own task) --- */
     ESP_ERROR_CHECK(cli_init(&cfg));
+
+    /* --- OTA: validate firmware on first boot after update --- */
+    ESP_ERROR_CHECK(app_ota_init());
 }
