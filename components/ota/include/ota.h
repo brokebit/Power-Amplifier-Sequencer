@@ -41,6 +41,23 @@ const char *app_ota_get_version(void);
 void app_ota_print_status(void);
 
 /**
+ * Structured OTA status for programmatic access.
+ */
+typedef struct {
+    char version[32];
+    char running_partition[16];
+    char boot_partition[16];
+    char next_update_partition[16];
+    char app_state[24];
+    char other_version[32];
+} ota_status_t;
+
+/**
+ * Fill status struct with current OTA information.
+ */
+esp_err_t app_ota_get_status(ota_status_t *out);
+
+/**
  * Store the GitHub repo identifier (e.g. "owner/repo") in NVS.
  */
 esp_err_t app_ota_set_repo(const char *repo);

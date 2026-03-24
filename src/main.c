@@ -8,6 +8,7 @@
 #include "monitor.h"
 #include "ota.h"
 #include "ptt.h"
+#include "web_server.h"
 #include "relays.h"
 #include "sequencer.h"
 #include "wifi_sta.h"
@@ -49,4 +50,7 @@ void app_main(void)
 
     /* --- OTA: validate firmware on first boot after update --- */
     ESP_ERROR_CHECK(app_ota_init());
+
+    /* --- HTTP server: REST API, WebSocket, static files --- */
+    ESP_ERROR_CHECK(web_server_init(&cfg));
 }

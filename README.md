@@ -60,6 +60,7 @@ The system is organized as ESP-IDF components under `components/`. Two FreeRTOS 
 | [cli](components/cli/README.md) | Interactive serial console (REPL) on UART0 using esp_console. Runtime inspection, configuration, sequence editing, ADC diagnostics, relay control, and WiFi management. |
 | [wifi_sta](components/wifi_sta/) | WiFi Station mode manager. NVS-backed credentials in separate namespace. Auto-connects on boot with exponential backoff retry. Publishes connection state to system_state. |
 | [ota](components/ota/) | OTA firmware update manager. HTTPS pull from GitHub Releases or direct URL. Dual-partition rollback support with automatic boot validation. NVS-backed repo configuration. |
+| [web_server](components/web_server/) | HTTP server with REST API, WebSocket live state push, and SPIFFS static file serving. Mirrors all CLI functionality over HTTP for browser dashboards and external tools. |
 | [hw_config](components/hw_config/) | Header-only pin definitions and peripheral addresses. |
 
 ### Initialization Order
@@ -78,6 +79,7 @@ xTaskCreate(sequencer_task, ...)   — priority 10
 xTaskCreate(monitor_task, ...)     — priority 7
 cli_init()         — register commands, suppress logging, start REPL task (pri 5)
 app_ota_init()     — validate firmware after OTA update (rollback gate)
+web_server_init()  — HTTP server, REST API, WebSocket push, SPIFFS mount
 ```
 
 ### Key Design Decisions
@@ -361,7 +363,10 @@ Sequencer/
 │   ├── sequencer/              # Core state machine
 │   ├── system_state/           # Shared observable state blackboard
 │   ├── wifi_sta/               # WiFi Station mode manager
-│   └── ota/                    # OTA firmware update manager
+│   ├── ota/                    # OTA firmware update manager
+│   └── web_server/             # HTTP REST API, WebSocket, SPIFFS static serving
+├── data/                          # SPIFFS filesystem content (web UI)
+│   └── index.html             # Dashboard page served at http://<device>/
 ├── partitions.csv              # Custom partition table (dual OTA + SPIFFS)
 ├── platformio.ini              # PlatformIO build config
 ├── sdkconfig.defaults          # ESP-IDF Kconfig overrides (8MB flash, OTA rollback)
@@ -369,6 +374,90 @@ Sequencer/
 ```
 
 Each component under `components/` has its own `CMakeLists.txt`, `include/` directory with public headers, and a `README.md` with detailed documentation of its data structures, event flow, and architecture decisions.
+
+## Web Interface & REST API
+
+When connected to WiFi, the device runs an HTTP server on port 80. Open `http://<device-ip>/` in a browser to see the live dashboard, or use the REST API with `curl` or any HTTP client.
+
+### Live State (WebSocket)
+
+Connect to `ws://<device-ip>/ws` for a live JSON stream pushed every 500 ms. The frame format matches `GET /api/state`. The dashboard page (`/`) uses this automatically.
+
+### REST Endpoints
+
+All responses use the envelope `{"ok": true, "data": {...}}` or `{"ok": false, "error": "msg"}`.
+
+#### State & System
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/state` | System state snapshot (PTT, sequencer, relays, power, SWR, temps, WiFi) |
+| GET | `/api/version` | Firmware version, IDF version, chip info |
+| POST | `/api/reboot` | Reboot the device (2s delay) |
+| POST | `/api/log` | Set log level — body: `{"level": "info", "tag": "monitor"}` |
+
+#### Configuration
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/config` | Full config dump (thresholds, cal factors, sequences, relay names) |
+| POST | `/api/config` | Set a config key — body: `{"key": "swr_threshold", "value": "2.5"}` |
+| POST | `/api/config/save` | Persist current config to NVS |
+| POST | `/api/config/defaults` | Reset config to factory defaults (in memory only) |
+
+#### Relays & Sequencer
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/relay` | Set relay — body: `{"id": 1, "on": true}` |
+| POST | `/api/relay/name` | Set relay alias — body: `{"id": 2, "name": "PA"}` |
+| POST | `/api/fault/clear` | Clear latched fault, return to RX |
+| POST | `/api/fault/inject` | Inject test fault — body: `{"type": "swr"}` |
+| POST | `/api/seq` | Set sequence — body: `{"direction": "tx", "steps": [{"relay_id": 3, "state": true, "delay_ms": 50}]}` |
+| POST | `/api/seq/apply` | Apply current config to running sequencer (must be in RX state) |
+
+#### ADC
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/adc` | Read all 4 ADC channels (voltage) |
+| GET | `/api/adc?ch=0` | Read a single channel (0-3) |
+
+#### WiFi
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/wifi/status` | Connection state, IP, RSSI, auto-connect setting |
+| POST | `/api/wifi/config` | Set credentials — body: `{"ssid": "...", "password": "..."}` |
+| POST | `/api/wifi/connect` | Connect using saved credentials |
+| POST | `/api/wifi/disconnect` | Disconnect from AP |
+| GET | `/api/wifi/scan` | Scan for available networks (blocks 1-3s) |
+| POST | `/api/wifi/auto` | Enable/disable auto-connect — body: `{"enabled": true}` |
+| POST | `/api/wifi/erase` | Erase saved WiFi credentials |
+
+#### OTA
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/ota/status` | Running partition, version, app state, other slot info |
+| GET | `/api/ota/repo` | Show configured GitHub repo |
+| POST | `/api/ota/repo` | Set GitHub repo — body: `{"repo": "owner/repo"}` |
+| POST | `/api/ota/update` | Start OTA update (async) — body: `{"target": "latest"}` |
+| POST | `/api/ota/rollback` | Revert to previous firmware and reboot |
+| POST | `/api/ota/validate` | Manually mark current firmware as valid |
+
+### Examples
+
+```bash
+# Get live state
+curl http://192.168.1.100/api/state
+
+# Toggle a relay
+curl -X POST http://192.168.1.100/api/relay -d '{"id":2,"on":true}'
+
+# Update a config parameter
+curl -X POST http://192.168.1.100/api/config -d '{"key":"swr_threshold","value":"2.5"}'
+
+# Save config to NVS
+curl -X POST http://192.168.1.100/api/config/save
+
+# Trigger OTA update
+curl -X POST http://192.168.1.100/api/ota/update -d '{"target":"latest"}'
+```
 
 ## Creating a Release
 
@@ -513,5 +602,5 @@ The device will auto-connect to WiFi on future boots. Subsequent firmware update
 - Figure out the RF Head voltage to db math and proper calibration.
 - Implement the Nextion display driver and UI.
 - Implement a reset button to recover from EMERGENCY fault state without needing to power cycle.
-- Implement an API for external control of the sequencer (e.g. from a PC or microcontroller) via WiFi.
-- Add a web interface for monitoring and configuration over WiFi.
+- Build out the web dashboard UI (the current index.html is a minimal placeholder).
+- Add authentication to the REST API write endpoints.

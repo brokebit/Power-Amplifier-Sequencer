@@ -67,36 +67,65 @@ static const char *ota_state_str(esp_ota_img_states_t state)
     }
 }
 
-void app_ota_print_status(void)
+esp_err_t app_ota_get_status(ota_status_t *out)
 {
+    memset(out, 0, sizeof(*out));
+
     const esp_partition_t *running = esp_ota_get_running_partition();
     const esp_partition_t *boot = esp_ota_get_boot_partition();
     const esp_partition_t *update = esp_ota_get_next_update_partition(NULL);
 
-    printf("Firmware version: %s\n", app_ota_get_version());
-    printf("Running partition: %s (addr 0x%lx, size %lu KB)\n",
-           running->label, (unsigned long)running->address,
-           (unsigned long)(running->size / 1024));
-    printf("Boot partition:    %s\n", boot->label);
-    printf("Next update slot:  %s\n", update ? update->label : "(none)");
+    strncpy(out->version, app_ota_get_version(), sizeof(out->version) - 1);
+    strncpy(out->running_partition, running->label, sizeof(out->running_partition) - 1);
+    strncpy(out->boot_partition, boot->label, sizeof(out->boot_partition) - 1);
+    if (update) {
+        strncpy(out->next_update_partition, update->label,
+                sizeof(out->next_update_partition) - 1);
+    }
 
     esp_ota_img_states_t state;
     esp_err_t err = esp_ota_get_state_partition(running, &state);
     if (err == ESP_OK) {
-        printf("App state:         %s\n", ota_state_str(state));
+        strncpy(out->app_state, ota_state_str(state), sizeof(out->app_state) - 1);
+    } else {
+        strncpy(out->app_state, "unknown", sizeof(out->app_state) - 1);
     }
 
-    /* Show the other slot's info */
     const esp_partition_t *other = esp_ota_get_next_update_partition(running);
     if (other) {
         esp_app_desc_t other_desc;
         err = esp_ota_get_partition_description(other, &other_desc);
         if (err == ESP_OK) {
-            printf("Other slot:        %s (version %s)\n",
-                   other->label, other_desc.version);
+            strncpy(out->other_version, other_desc.version,
+                    sizeof(out->other_version) - 1);
         } else {
-            printf("Other slot:        %s (empty)\n", other->label);
+            strncpy(out->other_version, "(empty)", sizeof(out->other_version) - 1);
         }
+    }
+
+    return ESP_OK;
+}
+
+void app_ota_print_status(void)
+{
+    ota_status_t status;
+    app_ota_get_status(&status);
+
+    const esp_partition_t *running = esp_ota_get_running_partition();
+
+    printf("Firmware version: %s\n", status.version);
+    printf("Running partition: %s (addr 0x%lx, size %lu KB)\n",
+           running->label, (unsigned long)running->address,
+           (unsigned long)(running->size / 1024));
+    printf("Boot partition:    %s\n", status.boot_partition);
+    printf("Next update slot:  %s\n",
+           status.next_update_partition[0] ? status.next_update_partition : "(none)");
+    printf("App state:         %s\n", status.app_state);
+
+    if (status.other_version[0]) {
+        const esp_partition_t *other = esp_ota_get_next_update_partition(running);
+        printf("Other slot:        %s (%s)\n",
+               other ? other->label : "?", status.other_version);
     }
 }
 

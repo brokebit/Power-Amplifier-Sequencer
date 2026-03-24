@@ -1,0 +1,95 @@
+#include <string.h>
+
+#include "cJSON.h"
+#include "esp_http_server.h"
+
+#include "hw_config.h"
+#include "relays.h"
+
+#include "web_json.h"
+#include "web_server.h"
+
+/* ---- POST /api/relay ---------------------------------------------------- */
+
+static esp_err_t api_relay_handler(httpd_req_t *req)
+{
+    cJSON *body = web_parse_body(req);
+    if (!body) {
+        return ESP_OK;
+    }
+
+    cJSON *id_json = cJSON_GetObjectItem(body, "id");
+    cJSON *on_json = cJSON_GetObjectItem(body, "on");
+    if (!id_json || !cJSON_IsNumber(id_json) || !on_json || !cJSON_IsBool(on_json)) {
+        cJSON_Delete(body);
+        return web_json_error(req, 400, "missing 'id' (number) and 'on' (bool) fields");
+    }
+
+    int id = id_json->valueint;
+    bool on = cJSON_IsTrue(on_json);
+    cJSON_Delete(body);
+
+    esp_err_t err = relay_set((uint8_t)id, on);
+    if (err == ESP_ERR_INVALID_ARG) {
+        return web_json_error(req, 400, "relay id must be 1-6");
+    }
+    if (err != ESP_OK) {
+        return web_json_error(req, 500, "relay_set failed");
+    }
+
+    return web_json_ok(req, NULL);
+}
+
+/* ---- POST /api/relay/name ----------------------------------------------- */
+
+static esp_err_t api_relay_name_handler(httpd_req_t *req)
+{
+    cJSON *body = web_parse_body(req);
+    if (!body) {
+        return ESP_OK;
+    }
+
+    cJSON *id_json   = cJSON_GetObjectItem(body, "id");
+    cJSON *name_json = cJSON_GetObjectItem(body, "name");
+    if (!id_json || !cJSON_IsNumber(id_json)) {
+        cJSON_Delete(body);
+        return web_json_error(req, 400, "missing 'id' (number) field");
+    }
+
+    int id = id_json->valueint;
+    if (id < 1 || id > HW_RELAY_COUNT) {
+        cJSON_Delete(body);
+        return web_json_error(req, 400, "relay id must be 1-6");
+    }
+
+    app_config_t *cfg = web_get_config();
+    if (name_json && cJSON_IsString(name_json)) {
+        strncpy(cfg->relay_names[id - 1], name_json->valuestring, CFG_RELAY_NAME_LEN - 1);
+        cfg->relay_names[id - 1][CFG_RELAY_NAME_LEN - 1] = '\0';
+    } else {
+        /* No name or null — clear it */
+        cfg->relay_names[id - 1][0] = '\0';
+    }
+
+    cJSON_Delete(body);
+    return web_json_ok(req, NULL);
+}
+
+/* ---- registration ------------------------------------------------------- */
+
+void web_register_api_relay(httpd_handle_t server)
+{
+    const httpd_uri_t relay_uri = {
+        .uri     = "/api/relay",
+        .method  = HTTP_POST,
+        .handler = api_relay_handler,
+    };
+    httpd_register_uri_handler(server, &relay_uri);
+
+    const httpd_uri_t name_uri = {
+        .uri     = "/api/relay/name",
+        .method  = HTTP_POST,
+        .handler = api_relay_name_handler,
+    };
+    httpd_register_uri_handler(server, &name_uri);
+}

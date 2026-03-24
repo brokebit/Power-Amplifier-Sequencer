@@ -94,6 +94,18 @@ void config_defaults(app_config_t *cfg);
 const char *config_relay_label(const app_config_t *cfg, uint8_t relay_id,
                                char *buf, size_t buf_len);
 
+/**
+ * Set a config field by key name (string) and value (string).
+ * Handles type conversion and range validation.
+ * On error, writes a message into err_msg (if non-NULL).
+ *
+ * Valid keys: swr_threshold, temp1_threshold, temp2_threshold,
+ *             fwd_cal, ref_cal, therm_beta, therm_r0, therm_rseries,
+ *             pa_relay
+ */
+esp_err_t config_set_by_key(app_config_t *cfg, const char *key,
+                            const char *value_str, char *err_msg, size_t err_len);
+
 #ifdef __cplusplus
 }
 #endif

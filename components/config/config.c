@@ -1,4 +1,6 @@
+#include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "esp_log.h"
@@ -101,6 +103,104 @@ const char *config_relay_label(const app_config_t *cfg, uint8_t relay_id,
         snprintf(buf, buf_len, "R%d", relay_id);
     }
     return buf;
+}
+
+/* ---- key-value setter --------------------------------------------------- */
+
+typedef struct {
+    const char *key;
+    size_t      offset;
+    float       min;
+    float       max;
+} config_float_key_t;
+
+typedef struct {
+    const char *key;
+    size_t      offset;
+    int         min;
+    int         max;
+} config_int_key_t;
+
+#define CFG_KEY(name, field, lo, hi) \
+    { name, offsetof(app_config_t, field), lo, hi }
+
+#define CFG_INT_KEY(name, field, lo, hi) \
+    { name, offsetof(app_config_t, field), lo, hi }
+
+static const config_float_key_t s_float_keys[] = {
+    CFG_KEY("swr_threshold",  swr_fault_threshold,       1.0f,  99.0f),
+    CFG_KEY("temp1_threshold", temp1_fault_threshold_c,    0.0f, 200.0f),
+    CFG_KEY("temp2_threshold", temp2_fault_threshold_c,    0.0f, 200.0f),
+    CFG_KEY("fwd_cal",        fwd_power_cal_factor,       0.001f, 1000.0f),
+    CFG_KEY("ref_cal",        ref_power_cal_factor,       0.001f, 1000.0f),
+    CFG_KEY("therm_beta",     thermistor_beta,            1.0f, 100000.0f),
+    CFG_KEY("therm_r0",       thermistor_r0_ohms,         1.0f, 10000000.0f),
+    CFG_KEY("therm_rseries",  thermistor_r_series_ohms,   1.0f, 10000000.0f),
+};
+
+#define NUM_FLOAT_KEYS (sizeof(s_float_keys) / sizeof(s_float_keys[0]))
+
+static const config_int_key_t s_int_keys[] = {
+    CFG_INT_KEY("pa_relay", pa_relay_id, 1, 6),
+};
+
+#define NUM_INT_KEYS (sizeof(s_int_keys) / sizeof(s_int_keys[0]))
+
+esp_err_t config_set_by_key(app_config_t *cfg, const char *key,
+                            const char *value_str, char *err_msg, size_t err_len)
+{
+    /* Try float keys first */
+    for (size_t i = 0; i < NUM_FLOAT_KEYS; i++) {
+        if (strcmp(s_float_keys[i].key, key) == 0) {
+            char *end;
+            float val = strtof(value_str, &end);
+            if (end == value_str || *end != '\0') {
+                if (err_msg) {
+                    snprintf(err_msg, err_len, "invalid number: %s", value_str);
+                }
+                return ESP_ERR_INVALID_ARG;
+            }
+            if (val < s_float_keys[i].min || val > s_float_keys[i].max) {
+                if (err_msg) {
+                    snprintf(err_msg, err_len, "out of range [%.3g .. %.3g]",
+                             s_float_keys[i].min, s_float_keys[i].max);
+                }
+                return ESP_ERR_INVALID_ARG;
+            }
+            float *field = (float *)((uint8_t *)cfg + s_float_keys[i].offset);
+            *field = val;
+            return ESP_OK;
+        }
+    }
+
+    /* Try integer keys */
+    for (size_t i = 0; i < NUM_INT_KEYS; i++) {
+        if (strcmp(s_int_keys[i].key, key) == 0) {
+            char *end;
+            long val = strtol(value_str, &end, 10);
+            if (end == value_str || *end != '\0') {
+                if (err_msg) {
+                    snprintf(err_msg, err_len, "invalid integer: %s", value_str);
+                }
+                return ESP_ERR_INVALID_ARG;
+            }
+            if (val < s_int_keys[i].min || val > s_int_keys[i].max) {
+                if (err_msg) {
+                    snprintf(err_msg, err_len, "out of range [%d .. %d]",
+                             s_int_keys[i].min, s_int_keys[i].max);
+                }
+                return ESP_ERR_INVALID_ARG;
+            }
+            uint8_t *field = (uint8_t *)cfg + s_int_keys[i].offset;
+            *field = (uint8_t)val;
+            return ESP_OK;
+        }
+    }
+
+    if (err_msg) {
+        snprintf(err_msg, err_len, "unknown key: %s", key);
+    }
+    return ESP_ERR_NOT_FOUND;
 }
 
 esp_err_t config_save(const app_config_t *cfg)

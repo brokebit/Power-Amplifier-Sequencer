@@ -76,6 +76,24 @@ esp_err_t app_wifi_get_rssi(int8_t *rssi);
 esp_err_t app_wifi_scan(void);
 
 /**
+ * Structured scan result for programmatic access.
+ */
+typedef struct {
+    char    ssid[33];
+    int8_t  rssi;
+    uint8_t channel;
+    uint8_t authmode;  /* wifi_auth_mode_t cast to uint8 */
+} wifi_scan_result_t;
+
+/**
+ * Blocking WiFi scan returning structured results.
+ * Caller must free(*results) when done.
+ * *out_count is set to the number of results.
+ * Returns ESP_OK on success.
+ */
+esp_err_t app_wifi_scan_results(wifi_scan_result_t **results, uint16_t *out_count);
+
+/**
  * Enable or disable auto-connect on boot. Persisted to NVS.
  */
 esp_err_t app_wifi_set_enabled(bool enabled);

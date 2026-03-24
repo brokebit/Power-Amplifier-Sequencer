@@ -272,8 +272,11 @@ esp_err_t app_wifi_get_rssi(int8_t *rssi)
     return err;
 }
 
-esp_err_t app_wifi_scan(void)
+esp_err_t app_wifi_scan_results(wifi_scan_result_t **results, uint16_t *out_count)
 {
+    *results = NULL;
+    *out_count = 0;
+
     wifi_scan_config_t scan_cfg = {
         .show_hidden = false,
         .scan_type   = WIFI_SCAN_TYPE_ACTIVE,
@@ -288,7 +291,6 @@ esp_err_t app_wifi_scan(void)
     esp_wifi_scan_get_ap_num(&count);
 
     if (count == 0) {
-        printf("No networks found\n");
         return ESP_OK;
     }
 
@@ -296,14 +298,48 @@ esp_err_t app_wifi_scan(void)
     if (!records) {
         return ESP_ERR_NO_MEM;
     }
-
     esp_wifi_scan_get_ap_records(&count, records);
+
+    wifi_scan_result_t *out = malloc(count * sizeof(wifi_scan_result_t));
+    if (!out) {
+        free(records);
+        return ESP_ERR_NO_MEM;
+    }
+
+    for (int i = 0; i < count; i++) {
+        strncpy(out[i].ssid, (char *)records[i].ssid, sizeof(out[i].ssid) - 1);
+        out[i].ssid[sizeof(out[i].ssid) - 1] = '\0';
+        out[i].rssi     = records[i].rssi;
+        out[i].channel  = records[i].primary;
+        out[i].authmode = (uint8_t)records[i].authmode;
+    }
+
+    free(records);
+    *results = out;
+    *out_count = count;
+    return ESP_OK;
+}
+
+esp_err_t app_wifi_scan(void)
+{
+    wifi_scan_result_t *results = NULL;
+    uint16_t count = 0;
+
+    esp_err_t err = app_wifi_scan_results(&results, &count);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    if (count == 0) {
+        printf("No networks found\n");
+        return ESP_OK;
+    }
 
     printf("%-32s  RSSI  Ch  Security\n", "SSID");
     printf("%-32s  ----  --  --------\n", "----");
     for (int i = 0; i < count; i++) {
         const char *auth;
-        switch (records[i].authmode) {
+        switch (results[i].authmode) {
         case WIFI_AUTH_OPEN:          auth = "Open";   break;
         case WIFI_AUTH_WPA_PSK:       auth = "WPA";    break;
         case WIFI_AUTH_WPA2_PSK:      auth = "WPA2";   break;
@@ -313,11 +349,11 @@ esp_err_t app_wifi_scan(void)
         default:                      auth = "Other";  break;
         }
         printf("%-32s  %4d  %2d  %s\n",
-               (char *)records[i].ssid, records[i].rssi,
-               records[i].primary, auth);
+               results[i].ssid, results[i].rssi,
+               results[i].channel, auth);
     }
 
-    free(records);
+    free(results);
     return ESP_OK;
 }
 
