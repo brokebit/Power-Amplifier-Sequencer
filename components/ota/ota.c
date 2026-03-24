@@ -11,9 +11,9 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "wifi_sta.h"
 
 #include "ota.h"
-#include "wifi_sta.h"
 
 static const char *TAG = "ota";
 

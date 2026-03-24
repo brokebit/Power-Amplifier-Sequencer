@@ -1,8 +1,8 @@
 #include <stdbool.h>
 
 #include "esp_log.h"
-#include "driver/gpio.h"
 
+#include "driver/gpio.h"
 #include "hw_config.h"
 #include "sequencer.h"
 #include "system_state.h"

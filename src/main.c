@@ -6,11 +6,11 @@
 #include "cli.h"
 #include "config.h"
 #include "monitor.h"
+#include "ota.h"
 #include "ptt.h"
 #include "relays.h"
 #include "sequencer.h"
 #include "wifi_sta.h"
-#include "ota.h"
 
 static const char *TAG = "main";
 
@@ -40,7 +40,7 @@ void app_main(void)
 
     /* --- start tasks --- */
     xTaskCreate(sequencer_task, "sequencer", 4096, NULL, 10, NULL);
-    xTaskCreate(monitor_task,   "monitor",   4096, NULL,  7, NULL);
+    xTaskCreate(monitor_task, "monitor", 4096, NULL, 7, NULL);
 
     ESP_LOGI(TAG, "all components initialised");
 

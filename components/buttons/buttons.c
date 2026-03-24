@@ -2,8 +2,8 @@
 
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "driver/gpio.h"
 
+#include "driver/gpio.h"
 #include "hw_config.h"
 #include "sequencer.h"
 

@@ -5,15 +5,15 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"
-#include "nvs.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/timers.h"
 
-#include "wifi_sta.h"
-
+#include "nvs.h"
 #include "system_state.h"
+
+#include "wifi_sta.h"
 
 static const char *TAG = "wifi_sta";
 

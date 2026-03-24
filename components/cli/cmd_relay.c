@@ -4,11 +4,12 @@
 
 #include "esp_console.h"
 
-#include "cli.h"
 #include "config.h"
 #include "hw_config.h"
 #include "relays.h"
 #include "system_state.h"
+
+#include "cli.h"
 
 static void show_relays(void)
 {

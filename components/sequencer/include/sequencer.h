@@ -28,7 +28,7 @@ typedef enum
     SEQ_FAULT_HIGH_SWR   = 1,
     SEQ_FAULT_OVER_TEMP1 = 2,
     SEQ_FAULT_OVER_TEMP2 = 3,
-    SEQ_FAULT_EMERGENCY  = 4,
+    SEQ_FAULT_EMERGENCY  = 4
 } seq_fault_t;
 
 /* ---------------------------------------------------------
@@ -39,7 +39,7 @@ typedef enum
     SEQ_EVENT_PTT_ASSERT,        /* PTT line went active (low) */
     SEQ_EVENT_PTT_RELEASE,       /* PTT line released (high)   */
     SEQ_EVENT_FAULT,             /* Fault detected; data = seq_fault_t */
-    SEQ_EVENT_EMERGENCY_PA_OFF,  /* Emergency button pressed   */
+    SEQ_EVENT_EMERGENCY_PA_OFF   /* Emergency button pressed   */
 } seq_event_type_t;
 
 typedef struct {
@@ -56,7 +56,7 @@ typedef enum
     SEQ_STATE_SEQUENCING_TX,  /* Executing TX relay sequence */
     SEQ_STATE_TX,             /* TX active                   */
     SEQ_STATE_SEQUENCING_RX,  /* Executing RX relay sequence */
-    SEQ_STATE_FAULT,          /* Latched fault — manual clear required */
+    SEQ_STATE_FAULT           /* Latched fault — manual clear required */
 } seq_state_t;
 
 /* ---------------------------------------------------------

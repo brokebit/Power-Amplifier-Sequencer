@@ -53,9 +53,9 @@ void system_state_set_sensors(float fwd_w, float ref_w, float swr,
     portENTER_CRITICAL(&s_mux);
     s_state.fwd_power_w = fwd_w;
     s_state.ref_power_w = ref_w;
-    s_state.swr         = swr;
-    s_state.temp1_c     = temp1_c;
-    s_state.temp2_c     = temp2_c;
+    s_state.swr = swr;
+    s_state.temp1_c = temp1_c;
+    s_state.temp2_c = temp2_c;
     portEXIT_CRITICAL(&s_mux);
 }
 
@@ -63,8 +63,8 @@ void system_state_set_wifi(bool connected, uint32_t ip_addr, int8_t rssi)
 {
     portENTER_CRITICAL(&s_mux);
     s_state.wifi_connected = connected;
-    s_state.wifi_ip_addr   = ip_addr;
-    s_state.wifi_rssi      = rssi;
+    s_state.wifi_ip_addr = ip_addr;
+    s_state.wifi_rssi = rssi;
     portEXIT_CRITICAL(&s_mux);
 }
 

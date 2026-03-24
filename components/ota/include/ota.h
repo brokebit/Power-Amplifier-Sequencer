@@ -1,3 +1,5 @@
+#pragma once
+
 /* =========================================================
  * ota.h -- OTA firmware update manager
  *
@@ -6,8 +8,6 @@
  *
  * Public API uses app_ota_ prefix.
  * ========================================================= */
-
-#pragma once
 
 #include "esp_err.h"
 

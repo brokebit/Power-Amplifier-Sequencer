@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "esp_console.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 
