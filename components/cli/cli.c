@@ -33,6 +33,7 @@ esp_err_t cli_init(app_config_t *cfg)
     esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
     repl_config.prompt = "seq> ";
     repl_config.max_cmdline_length = 256;
+    repl_config.task_stack_size = 16384;  /* OTA needs ~12KB for TLS handshake */
 
     esp_console_dev_uart_config_t uart_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
 

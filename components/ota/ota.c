@@ -203,11 +203,18 @@ esp_err_t app_ota_update(const char *target)
     printf("OTA update from: %s\n", url);
     printf("Starting download...\n");
 
+    /* Enable logging temporarily so TLS/HTTP errors are visible */
+    esp_log_level_set("esp_https_ota", ESP_LOG_INFO);
+    esp_log_level_set("esp_http_client", ESP_LOG_INFO);
+    esp_log_level_set("HTTP_CLIENT", ESP_LOG_INFO);
+
     esp_http_client_config_t http_cfg = {
         .url = url,
         .crt_bundle_attach = esp_crt_bundle_attach,
         .timeout_ms = OTA_RECV_TIMEOUT,
         .keep_alive_enable = true,
+        .buffer_size = 1024,       /* receive buffer */
+        .buffer_size_tx = 1024,    /* transmit buffer */
     };
 
     esp_https_ota_config_t ota_cfg = {
