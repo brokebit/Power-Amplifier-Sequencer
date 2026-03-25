@@ -5,10 +5,6 @@
 
 #include "hw_config.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* =========================================================
  * system_state.h — Observable system state snapshot
  *
@@ -25,28 +21,32 @@ extern "C" {
  * seq_fault_t when reading.
  * ========================================================= */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct {
     /* Relay hardware state — bitmask, bit 0 = relay 1 */
-    uint8_t     relay_states;
+    uint8_t relay_states;
 
     /* PTT input */
-    bool        ptt_active;
+    bool ptt_active;
 
     /* Sequencer — cast to seq_state_t / seq_fault_t */
-    uint8_t     seq_state;
-    uint8_t     seq_fault;
+    uint8_t seq_state;
+    uint8_t seq_fault;
 
     /* Sensor readings */
-    float       fwd_power_w;
-    float       ref_power_w;
-    float       swr;
-    float       temp1_c;
-    float       temp2_c;
+    float fwd_power_w;
+    float ref_power_w;
+    float swr;
+    float temp1_c;
+    float temp2_c;
 
     /* WiFi status */
-    bool        wifi_connected;
-    uint32_t    wifi_ip_addr;       /* network byte order */
-    int8_t      wifi_rssi;
+    bool wifi_connected;
+    uint32_t wifi_ip_addr; /* network byte order */
+    int8_t wifi_rssi;
 } system_state_t;
 
 /* ---------------------------------------------------------

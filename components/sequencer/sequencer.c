@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include "esp_log.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -17,10 +18,10 @@ static const char *TAG = "sequencer";
 /* ---------------------------------------------------------
  * Module state
  * --------------------------------------------------------- */
-static QueueHandle_t s_queue        = NULL;
-static seq_state_t   s_state        = SEQ_STATE_RX;
-static seq_fault_t   s_fault        = SEQ_FAULT_NONE;
-static app_config_t  s_cfg;
+static QueueHandle_t s_queue = NULL;
+static seq_state_t s_state = SEQ_STATE_RX;
+static seq_fault_t s_fault = SEQ_FAULT_NONE;
+static app_config_t s_cfg;
 
 /* ---------------------------------------------------------
  * Helpers

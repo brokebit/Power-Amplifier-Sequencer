@@ -4,6 +4,10 @@
 #include "esp_err.h"
 #include "esp_http_server.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Send a success response: {"ok": true, "data": <data>}
  * Takes ownership of data — frees it after sending.
@@ -24,3 +28,7 @@ esp_err_t web_json_error(httpd_req_t *req, int http_status, const char *msg);
  * Sends a 400 error response automatically on failure.
  */
 cJSON *web_parse_body(httpd_req_t *req);
+
+#ifdef __cplusplus
+}
+#endif

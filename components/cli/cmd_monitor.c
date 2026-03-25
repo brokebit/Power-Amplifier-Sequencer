@@ -13,19 +13,19 @@
 #include "system_state.h"
 
 static const char *s_state_names[] = {
-    [SEQ_STATE_RX]            = "RX",
+    [SEQ_STATE_RX] = "RX",
     [SEQ_STATE_SEQUENCING_TX] = "SEQ_TX",
-    [SEQ_STATE_TX]            = "TX",
+    [SEQ_STATE_TX] = "TX",
     [SEQ_STATE_SEQUENCING_RX] = "SEQ_RX",
-    [SEQ_STATE_FAULT]         = "FAULT",
+    [SEQ_STATE_FAULT] = "FAULT"
 };
 
 static const char *s_fault_names[] = {
-    [SEQ_FAULT_NONE]       = "none",
-    [SEQ_FAULT_HIGH_SWR]   = "HIGH_SWR",
+    [SEQ_FAULT_NONE] = "none",
+    [SEQ_FAULT_HIGH_SWR] = "HIGH_SWR",
     [SEQ_FAULT_OVER_TEMP1] = "OVER_TEMP1",
     [SEQ_FAULT_OVER_TEMP2] = "OVER_TEMP2",
-    [SEQ_FAULT_EMERGENCY]  = "EMERGENCY",
+    [SEQ_FAULT_EMERGENCY] = "EMERGENCY"
 };
 
 #define DEFAULT_INTERVAL_MS  1000
@@ -105,13 +105,13 @@ static int cmd_monitor_handler(int argc, char **argv)
     }
 }
 
-void register_cmd_monitor(void)
+void cli_register_cmd_monitor(void)
 {
     const esp_console_cmd_t cmd = {
         .command = "monitor",
-        .help    = "Continuous status output: monitor [interval_ms] [csv]",
-        .hint    = NULL,
-        .func    = &cmd_monitor_handler,
+        .help = "Continuous status output: monitor [interval_ms] [csv]",
+        .hint = NULL,
+        .func = &cmd_monitor_handler,
     };
     esp_console_cmd_register(&cmd);
 }

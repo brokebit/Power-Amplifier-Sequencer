@@ -1,8 +1,8 @@
 #include <string.h>
 
-#include "cJSON.h"
 #include "esp_http_server.h"
 
+#include "cJSON.h"
 #include "config.h"
 #include "monitor.h"
 #include "sequencer.h"
@@ -48,36 +48,37 @@ static esp_err_t api_seq_handler(httpd_req_t *req)
     }
 
     app_config_t *cfg = web_get_config();
-    seq_step_t *steps   = is_tx ? cfg->tx_steps     : cfg->rx_steps;
-    uint8_t    *num_ptr = is_tx ? &cfg->tx_num_steps : &cfg->rx_num_steps;
+    seq_step_t *steps = is_tx ? cfg->tx_steps : cfg->rx_steps;
+    uint8_t *num_ptr = is_tx ? &cfg->tx_num_steps : &cfg->rx_num_steps;
 
     seq_step_t new_steps[SEQ_MAX_STEPS];
     for (int i = 0; i < count; i++) {
         cJSON *item = cJSON_GetArrayItem(steps_json, i);
-        cJSON *rid  = cJSON_GetObjectItem(item, "relay_id");
-        cJSON *st   = cJSON_GetObjectItem(item, "state");
-        cJSON *dms  = cJSON_GetObjectItem(item, "delay_ms");
+        cJSON *relay_id_json = cJSON_GetObjectItem(item, "relay_id");
+        cJSON *state_json = cJSON_GetObjectItem(item, "state");
+        cJSON *delay_json = cJSON_GetObjectItem(item, "delay_ms");
 
-        if (!rid || !cJSON_IsNumber(rid) || !st || !cJSON_IsBool(st) ||
-            !dms || !cJSON_IsNumber(dms)) {
+        if (!relay_id_json || !cJSON_IsNumber(relay_id_json) ||
+            !state_json || !cJSON_IsBool(state_json) ||
+            !delay_json || !cJSON_IsNumber(delay_json)) {
             cJSON_Delete(body);
             return web_json_error(req, 400,
                 "each step needs: relay_id (1-6), state (bool), delay_ms (0-10000)");
         }
 
-        int relay_id = rid->valueint;
+        int relay_id = relay_id_json->valueint;
         if (relay_id < 1 || relay_id > 6) {
             cJSON_Delete(body);
             return web_json_error(req, 400, "relay_id must be 1-6");
         }
-        int delay_ms = dms->valueint;
+        int delay_ms = delay_json->valueint;
         if (delay_ms < 0 || delay_ms > 10000) {
             cJSON_Delete(body);
             return web_json_error(req, 400, "delay_ms must be 0-10000");
         }
 
         new_steps[i].relay_id = (uint8_t)relay_id;
-        new_steps[i].state    = cJSON_IsTrue(st) ? 1 : 0;
+        new_steps[i].state = cJSON_IsTrue(state_json) ? 1 : 0;
         new_steps[i].delay_ms = (uint16_t)delay_ms;
     }
 
@@ -111,15 +112,15 @@ static esp_err_t api_seq_apply_handler(httpd_req_t *req)
 void web_register_api_seq(httpd_handle_t server)
 {
     const httpd_uri_t seq_uri = {
-        .uri     = "/api/seq",
-        .method  = HTTP_POST,
+        .uri ="/api/seq",
+        .method =HTTP_POST,
         .handler = api_seq_handler,
     };
     httpd_register_uri_handler(server, &seq_uri);
 
     const httpd_uri_t apply_uri = {
-        .uri     = "/api/seq/apply",
-        .method  = HTTP_POST,
+        .uri ="/api/seq/apply",
+        .method =HTTP_POST,
         .handler = api_seq_apply_handler,
     };
     httpd_register_uri_handler(server, &apply_uri);

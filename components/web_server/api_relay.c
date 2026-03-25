@@ -1,8 +1,8 @@
 #include <string.h>
 
-#include "cJSON.h"
 #include "esp_http_server.h"
 
+#include "cJSON.h"
 #include "hw_config.h"
 #include "relays.h"
 
@@ -49,7 +49,7 @@ static esp_err_t api_relay_name_handler(httpd_req_t *req)
         return ESP_OK;
     }
 
-    cJSON *id_json   = cJSON_GetObjectItem(body, "id");
+    cJSON *id_json = cJSON_GetObjectItem(body, "id");
     cJSON *name_json = cJSON_GetObjectItem(body, "name");
     if (!id_json || !cJSON_IsNumber(id_json)) {
         cJSON_Delete(body);
@@ -80,15 +80,15 @@ static esp_err_t api_relay_name_handler(httpd_req_t *req)
 void web_register_api_relay(httpd_handle_t server)
 {
     const httpd_uri_t relay_uri = {
-        .uri     = "/api/relay",
-        .method  = HTTP_POST,
+        .uri ="/api/relay",
+        .method =HTTP_POST,
         .handler = api_relay_handler,
     };
     httpd_register_uri_handler(server, &relay_uri);
 
     const httpd_uri_t name_uri = {
-        .uri     = "/api/relay/name",
-        .method  = HTTP_POST,
+        .uri ="/api/relay/name",
+        .method =HTTP_POST,
         .handler = api_relay_name_handler,
     };
     httpd_register_uri_handler(server, &name_uri);

@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "esp_log.h"
+
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "freertos/FreeRTOS.h"
@@ -26,16 +27,16 @@ static const char *TAG = "monitor";
 
 /* ---- module state ------------------------------------------------------- */
 
-static app_config_t             s_cfg;
-static i2c_master_bus_handle_t  s_bus;
-static ads1115_handle_t         s_chip[2];  /* [0]=0x48 reserved, [1]=0x49 active */
+static app_config_t s_cfg;
+static i2c_master_bus_handle_t s_bus;
+static ads1115_handle_t s_chip[2];  /* [0]=0x48 reserved, [1]=0x49 active */
 
 /* ALERT/RDY events from ISRs. Item = chip index (0 or 1).
  * Only chip 1 has an ISR installed; chip 0 is reserved for future use. */
-static QueueHandle_t            s_adc_queue;
+static QueueHandle_t s_adc_queue;
 
 /* Mutex protecting ADC access — shared between monitor_task and CLI */
-static SemaphoreHandle_t        s_adc_mutex;
+static SemaphoreHandle_t s_adc_mutex;
 
 /* ---- ISR handler (chip 1 only) ----------------------------------------- */
 
@@ -136,11 +137,11 @@ esp_err_t monitor_init(const app_config_t *cfg)
 
     /* I2C master bus */
     i2c_master_bus_config_t bus_cfg = {
-        .i2c_port            = HW_I2C_PORT,
-        .sda_io_num          = HW_I2C_SDA_GPIO,
-        .scl_io_num          = HW_I2C_SCL_GPIO,
-        .clk_source          = I2C_CLK_SRC_DEFAULT,
-        .glitch_ignore_cnt   = 7,
+        .i2c_port = HW_I2C_PORT,
+        .sda_io_num = HW_I2C_SDA_GPIO,
+        .scl_io_num = HW_I2C_SCL_GPIO,
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .glitch_ignore_cnt = 7,
         .flags.enable_internal_pullup = false,
     };
     esp_err_t ret = i2c_new_master_bus(&bus_cfg, &s_bus);
@@ -165,10 +166,10 @@ esp_err_t monitor_init(const app_config_t *cfg)
     gpio_install_isr_service(0);   /* no-op if already installed */
 
     gpio_config_t io = {
-        .mode         = GPIO_MODE_INPUT,
-        .pull_up_en   = GPIO_PULLUP_ENABLE,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type    = GPIO_INTR_DISABLE,       /* no ISR for chip 0 */
+        .intr_type = GPIO_INTR_DISABLE,       /* no ISR for chip 0 */
     };
     io.pin_bit_mask = 1ULL << HW_ADS1115_0_ALRT_GPIO;
     gpio_config(&io);

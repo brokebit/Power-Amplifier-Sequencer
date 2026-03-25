@@ -1,5 +1,10 @@
 #pragma once
 
+#include "esp_err.h"
+
+#include "ads1115.h"
+#include "config.h"
+
 /* =========================================================
  * monitor.h — ADC monitoring task
  *
@@ -15,10 +20,6 @@
  * On threshold breach: sends SEQ_EVENT_FAULT to the sequencer queue.
  * Live readings are published to system_state each cycle (~500 ms).
  * ========================================================= */
-
-#include "esp_err.h"
-#include "ads1115.h"
-#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {

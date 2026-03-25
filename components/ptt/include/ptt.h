@@ -4,10 +4,6 @@
 
 #include "esp_err.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* =========================================================
  * ptt.h — PTT GPIO interrupt driver
  *
@@ -18,6 +14,10 @@ extern "C" {
  * Call ptt_init() after sequencer_init() so the event queue
  * handle is available.
  * ========================================================= */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Configure GPIO 13 with an interrupt on both edges.

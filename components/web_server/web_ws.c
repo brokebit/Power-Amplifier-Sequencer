@@ -1,7 +1,9 @@
 #include <string.h>
+#include <unistd.h>
+
+#include "esp_log.h"
 
 #include "cJSON.h"
-#include "esp_log.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -113,10 +115,10 @@ static void ws_push_task(void *arg)
         size_t json_len = strlen(json_str);
 
         httpd_ws_frame_t frame = {
-            .type    = HTTPD_WS_TYPE_TEXT,
+            .type = HTTPD_WS_TYPE_TEXT,
             .payload = (uint8_t *)json_str,
-            .len     = json_len,
-            .final   = true,
+            .len = json_len,
+            .final = true,
         };
 
         /* Send to all connected clients */
@@ -136,6 +138,15 @@ static void ws_push_task(void *arg)
 
         free(json_str);
     }
+}
+
+/* ---- socket close callback ---------------------------------------------- */
+
+void ws_close_fd(httpd_handle_t hd, int fd)
+{
+    /* Remove from WS client list if this was a WS socket */
+    ws_remove_client(fd);
+    close(fd);
 }
 
 /* ---- init / stop -------------------------------------------------------- */

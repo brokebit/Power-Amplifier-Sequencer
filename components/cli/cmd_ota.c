@@ -65,13 +65,13 @@ static int cmd_ota_handler(int argc, char **argv)
     return 1;
 }
 
-void register_cmd_ota(void)
+void cli_register_cmd_ota(void)
 {
     const esp_console_cmd_t cmd = {
         .command = "ota",
-        .help    = "OTA updates: ota <status|repo|update|rollback|validate>",
-        .hint    = NULL,
-        .func    = &cmd_ota_handler,
+        .help = "OTA updates: ota <status|repo|update|rollback|validate>",
+        .hint = NULL,
+        .func = &cmd_ota_handler,
     };
     esp_console_cmd_register(&cmd);
 }

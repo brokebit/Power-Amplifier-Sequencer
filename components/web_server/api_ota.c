@@ -1,9 +1,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cJSON.h"
 #include "esp_http_server.h"
 
+#include "cJSON.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -145,43 +145,43 @@ static esp_err_t api_ota_validate_handler(httpd_req_t *req)
 void web_register_api_ota(httpd_handle_t server)
 {
     const httpd_uri_t status_uri = {
-        .uri     = "/api/ota/status",
-        .method  = HTTP_GET,
+        .uri ="/api/ota/status",
+        .method =HTTP_GET,
         .handler = api_ota_status_handler,
     };
     httpd_register_uri_handler(server, &status_uri);
 
     const httpd_uri_t repo_get_uri = {
-        .uri     = "/api/ota/repo",
-        .method  = HTTP_GET,
+        .uri ="/api/ota/repo",
+        .method =HTTP_GET,
         .handler = api_ota_repo_get_handler,
     };
     httpd_register_uri_handler(server, &repo_get_uri);
 
     const httpd_uri_t repo_set_uri = {
-        .uri     = "/api/ota/repo",
-        .method  = HTTP_POST,
+        .uri ="/api/ota/repo",
+        .method =HTTP_POST,
         .handler = api_ota_repo_set_handler,
     };
     httpd_register_uri_handler(server, &repo_set_uri);
 
     const httpd_uri_t update_uri = {
-        .uri     = "/api/ota/update",
-        .method  = HTTP_POST,
+        .uri ="/api/ota/update",
+        .method =HTTP_POST,
         .handler = api_ota_update_handler,
     };
     httpd_register_uri_handler(server, &update_uri);
 
     const httpd_uri_t rollback_uri = {
-        .uri     = "/api/ota/rollback",
-        .method  = HTTP_POST,
+        .uri ="/api/ota/rollback",
+        .method =HTTP_POST,
         .handler = api_ota_rollback_handler,
     };
     httpd_register_uri_handler(server, &rollback_uri);
 
     const httpd_uri_t validate_uri = {
-        .uri     = "/api/ota/validate",
-        .method  = HTTP_POST,
+        .uri ="/api/ota/validate",
+        .method =HTTP_POST,
         .handler = api_ota_validate_handler,
     };
     httpd_register_uri_handler(server, &validate_uri);

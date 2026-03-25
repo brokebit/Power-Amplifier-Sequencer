@@ -4,6 +4,7 @@
 #include "esp_timer.h"
 
 #include "driver/gpio.h"
+
 #include "hw_config.h"
 #include "sequencer.h"
 
@@ -15,10 +16,10 @@ static const char *TAG = "buttons";
  * Per-button state
  * --------------------------------------------------------- */
 typedef struct {
-    int              gpio;
-    uint8_t          id;          /* 1-indexed */
+    int gpio;
+    uint8_t id; /* 1-indexed */
     esp_timer_handle_t timer;
-    button_cb_t      cb;          /* NULL for BTN1 (handled internally) */
+    button_cb_t cb; /* NULL for BTN1 (handled internally) */
 } button_ctx_t;
 
 static button_ctx_t s_btns[HW_BUTTON_COUNT];
@@ -79,10 +80,10 @@ esp_err_t buttons_init(void)
 {
     /* Configure all button GPIOs */
     gpio_config_t cfg = {
-        .mode         = GPIO_MODE_INPUT,
-        .pull_up_en   = GPIO_PULLUP_ENABLE,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type    = GPIO_INTR_NEGEDGE,
+        .intr_type = GPIO_INTR_NEGEDGE,
         .pin_bit_mask = 0,
     };
     for (int i = 0; i < HW_BUTTON_COUNT; i++) {
@@ -105,14 +106,14 @@ esp_err_t buttons_init(void)
     /* Initialise per-button context, create debounce timers, register ISRs */
     for (int i = 0; i < HW_BUTTON_COUNT; i++) {
         s_btns[i].gpio = s_btn_gpios[i];
-        s_btns[i].id   = (uint8_t)(i + 1);
-        s_btns[i].cb   = NULL;
+        s_btns[i].id = (uint8_t)(i + 1);
+        s_btns[i].cb = NULL;
 
         esp_timer_create_args_t timer_args = {
-            .callback        = debounce_timer_cb,
-            .arg             = &s_btns[i],
+            .callback = debounce_timer_cb,
+            .arg = &s_btns[i],
             .dispatch_method = ESP_TIMER_TASK,
-            .name            = "btn_debounce",
+            .name = "btn_debounce",
         };
         err = esp_timer_create(&timer_args, &s_btns[i].timer);
         if (err != ESP_OK) {

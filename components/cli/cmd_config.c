@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "esp_console.h"
+#include "esp_err.h"
 
 #include "config.h"
 #include "hw_config.h"
@@ -117,13 +118,13 @@ static int cmd_config_handler(int argc, char **argv)
     return 1;
 }
 
-void register_cmd_config(void)
+void cli_register_cmd_config(void)
 {
     const esp_console_cmd_t cmd = {
         .command = "config",
-        .help    = "Config management: config <show|set|save|defaults>",
-        .hint    = NULL,
-        .func    = &cmd_config_handler,
+        .help = "Config management: config <show|set|save|defaults>",
+        .hint = NULL,
+        .func = &cmd_config_handler,
     };
     esp_console_cmd_register(&cmd);
 }

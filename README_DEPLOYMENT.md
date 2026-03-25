@@ -138,3 +138,74 @@ seq> version
 ```
 
 The device will auto-connect to WiFi on future boots. Subsequent firmware updates can be done over the air with `ota update latest`.
+
+## Testing the REST API
+
+An integration test suite in [tests/](tests/) exercises every REST and WebSocket endpoint against a live device.
+
+### Prerequisites
+
+Python 3.8+ and the test dependencies:
+
+```bash
+pip install -r tests/requirements.txt
+```
+
+This installs `pytest`, `requests`, and `websocket-client`.
+
+### Running tests
+
+All commands are run from the project root. Pass the device's IP address with `--device-ip`:
+
+```bash
+# Run all tests (destructive tests are skipped by default)
+pytest tests/ --device-ip 192.168.4.1
+
+# Run a specific test file
+pytest tests/test_relay.py --device-ip 192.168.4.1
+
+# Run a specific test class
+pytest tests/test_relay.py::TestPostRelay --device-ip 192.168.4.1
+
+# Include destructive tests (reboot, OTA, WiFi erase)
+pytest tests/ --device-ip 192.168.4.1 --run-destructive
+
+# Verbose output
+pytest tests/ --device-ip 192.168.4.1 -v
+```
+
+### Test markers
+
+Tests are tagged with markers defined in [tests/pytest.ini](tests/pytest.ini):
+
+| Marker | Meaning |
+|--------|---------|
+| `write` | Modifies device state (relays, config, faults). State is restored after each test. |
+| `destructive` | Reboots the device, triggers OTA, or erases WiFi credentials. Skipped unless `--run-destructive` is passed. |
+
+### Test coverage
+
+The suite contains 142 tests across 10 files:
+
+| File | Endpoints | Tests |
+|------|-----------|-------|
+| `test_state.py` | `GET /api/state`, `GET /api/version` | 13 |
+| `test_config.py` | `GET /api/config`, `POST /api/config`, save, defaults | 36 |
+| `test_relay.py` | `POST /api/relay`, `POST /api/relay/name` | 16 |
+| `test_fault.py` | `POST /api/fault/inject`, `POST /api/fault/clear` | 8 |
+| `test_seq.py` | `POST /api/seq`, `POST /api/seq/apply` | 14 |
+| `test_adc.py` | `GET /api/adc`, `GET /api/adc?ch=N` | 9 |
+| `test_wifi.py` | WiFi status, config, scan, connect, auto, erase | 9 |
+| `test_ota.py` | OTA status, repo, update, rollback, validate | 17 |
+| `test_system.py` | `POST /api/log`, `POST /api/reboot` | 11 |
+| `test_websocket.py` | `ws://<device>/ws` live state push | 9 |
+
+### How the tests work
+
+Tests run against a real device over the network — there are no mocks. The `conftest.py` provides a session-scoped `api` fixture (an `ApiClient` instance) with helpers that validate the JSON response envelope (`{"ok": true, "data": ...}` or `{"ok": false, "error": "..."}`):
+
+- `api.get_ok(path)` — GET, assert 200, return `data`
+- `api.post_ok(path, json=...)` — POST, assert 200, return `data`
+- `api.post_error(path, json=..., expected_status=400)` — POST, assert error
+
+Tests that modify state (marked `write`) restore original values in teardown. The `test_seq.py` file uses an autouse `restore_default_sequences` fixture to reset TX/RX sequences after each test.

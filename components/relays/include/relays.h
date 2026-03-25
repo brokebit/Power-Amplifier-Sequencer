@@ -5,14 +5,14 @@
 
 #include "esp_err.h"
 
+/* =========================================================
+ * relays.h -- GPIO relay driver
+ * Relay IDs are 1-indexed (1-6) matching schematic labels.
+ * ========================================================= */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/* =========================================================
- * relays.h — GPIO relay driver
- * Relay IDs are 1-indexed (1–6) matching schematic labels.
- * ========================================================= */
 
 /**
  * Initialise all relay GPIOs as outputs and drive them LOW (relays off).
@@ -22,7 +22,7 @@ esp_err_t relays_init(void);
 
 /**
  * Set a single relay on or off.
- * relay_id: 1–6
+ * relay_id: 1-6
  * on:       true = relay energised, false = relay released
  * Returns ESP_ERR_INVALID_ARG if relay_id is out of range.
  */

@@ -6,3 +6,6 @@
 .vscode/ipch
 .claude
 claude
+tests/.venv
+tests/__pycache__
+tests/.pytest_cache

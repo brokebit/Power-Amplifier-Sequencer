@@ -7,21 +7,21 @@
 #include "esp_https_ota.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
-#include "nvs.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "nvs.h"
 #include "wifi_sta.h"
 
 #include "ota.h"
 
 static const char *TAG = "ota";
 
-#define OTA_NVS_NAMESPACE  "ota_cfg"
-#define NVS_KEY_REPO       "repo"
-#define OTA_RECV_TIMEOUT   15000
-#define MAX_URL_LEN        256
-#define MAX_REPO_LEN       128
+#define OTA_NVS_NAMESPACE "ota_cfg"
+#define NVS_KEY_REPO "repo"
+#define OTA_RECV_TIMEOUT 15000
+#define MAX_URL_LEN 256
+#define MAX_REPO_LEN 128
 
 /* ---- boot validation ---------------------------------------------------- */
 
@@ -57,13 +57,13 @@ const char *app_ota_get_version(void)
 static const char *ota_state_str(esp_ota_img_states_t state)
 {
     switch (state) {
-    case ESP_OTA_IMG_NEW:            return "NEW";
-    case ESP_OTA_IMG_PENDING_VERIFY: return "PENDING_VERIFY";
-    case ESP_OTA_IMG_VALID:          return "VALID";
-    case ESP_OTA_IMG_INVALID:        return "INVALID";
-    case ESP_OTA_IMG_ABORTED:        return "ABORTED";
-    case ESP_OTA_IMG_UNDEFINED:      return "UNDEFINED";
-    default:                         return "UNKNOWN";
+        case ESP_OTA_IMG_NEW: return "NEW";
+        case ESP_OTA_IMG_PENDING_VERIFY: return "PENDING_VERIFY";
+        case ESP_OTA_IMG_VALID: return "VALID";
+        case ESP_OTA_IMG_INVALID: return "INVALID";
+        case ESP_OTA_IMG_ABORTED: return "ABORTED";
+        case ESP_OTA_IMG_UNDEFINED: return "UNDEFINED";
+        default: return "UNKNOWN";
     }
 }
 
@@ -117,14 +117,14 @@ void app_ota_print_status(void)
     printf("Running partition: %s (addr 0x%lx, size %lu KB)\n",
            running->label, (unsigned long)running->address,
            (unsigned long)(running->size / 1024));
-    printf("Boot partition:    %s\n", status.boot_partition);
-    printf("Next update slot:  %s\n",
+    printf("Boot partition: %s\n", status.boot_partition);
+    printf("Next update slot: %s\n",
            status.next_update_partition[0] ? status.next_update_partition : "(none)");
-    printf("App state:         %s\n", status.app_state);
+    printf("App state: %s\n", status.app_state);
 
     if (status.other_version[0]) {
         const esp_partition_t *other = esp_ota_get_next_update_partition(running);
-        printf("Other slot:        %s (%s)\n",
+        printf("Other slot: %s (%s)\n",
                other ? other->label : "?", status.other_version);
     }
 }

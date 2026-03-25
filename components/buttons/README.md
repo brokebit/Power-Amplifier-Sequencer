@@ -2,100 +2,110 @@
 
 ## Overview
 
-The `buttons` component is a debounced GPIO button driver for ESP-IDF. It manages six physical buttons: BTN1 is hardwired to emit the `SEQ_EVENT_EMERGENCY_PA_OFF` event into the sequencer's FreeRTOS queue, while BTN2 through BTN6 are spare inputs that accept user-registered callbacks. Debouncing is handled entirely in hardware-interrupt + software-timer cooperation, keeping ISR work minimal and deferring all logic to the `esp_timer` task context.
+The `buttons` component is a debounced GPIO button driver for the ESP32-S3 sequencer. It manages six physical buttons wired active-low with internal pull-ups. Button 1 is hard-wired to trigger an **Emergency PA Off** event on the sequencer's event queue -- a safety-critical function that bypasses any callback registration. Buttons 2 through 6 are spare inputs that accept optional user-registered callbacks.
+
+The debounce mechanism is interrupt-driven: a falling-edge ISR starts a 50 ms one-shot `esp_timer`, and the timer callback re-reads the GPIO level to confirm the press before dispatching. This keeps ISR execution minimal (disable interrupt, start timer) while the confirmation and dispatch logic runs in the `esp_timer` task context.
 
 ## Key Data Structures
 
-### `button_ctx_t` (internal, per-button state)
+### `button_ctx_t` (internal)
 
-| Field   | Type                  | Description                                                      |
-|---------|-----------------------|------------------------------------------------------------------|
-| `gpio`  | `int`                 | GPIO pin number for this button                                  |
-| `id`    | `uint8_t`             | 1-indexed button identifier (1 through 6)                        |
-| `timer` | `esp_timer_handle_t`  | Handle to the one-shot debounce timer                            |
-| `cb`    | `button_cb_t`         | Optional press callback; always `NULL` for BTN1                  |
+Per-button state held in a static array (`s_btns[HW_BUTTON_COUNT]`):
 
-A static array `s_btns[HW_BUTTON_COUNT]` (size 6) holds one context struct per button. The GPIO-to-index mapping comes from `HW_BUTTON_GPIOS` defined in `hw_config.h`.
+| Field   | Type                 | Description                                                        |
+|---------|----------------------|--------------------------------------------------------------------|
+| `gpio`  | `int`                | GPIO number for this button, sourced from `HW_BUTTON_GPIOS`       |
+| `id`    | `uint8_t`            | 1-indexed button identifier (1--6)                                 |
+| `timer` | `esp_timer_handle_t` | One-shot debounce timer handle, unique per button                  |
+| `cb`    | `button_cb_t`        | User-registered callback; always `NULL` for BTN1 (handled internally) |
 
-### `button_cb_t` (public callback type)
+### `button_cb_t` (public)
 
 ```c
 typedef void (*button_cb_t)(uint8_t button_id);
 ```
 
-Invoked from the `esp_timer` task context (not from an ISR), so it is safe to call most ESP-IDF APIs inside the callback.
+Callback signature for spare buttons. The `button_id` argument is 1-indexed (values 2--6). Invoked from the `esp_timer` task context, not from an ISR -- so it is safe to call FreeRTOS API functions, log, or do moderate work inside the callback.
 
-### GPIO Pin Assignments
+### GPIO Assignments (from `hw_config.h`)
 
-| Button | GPIO | Role               |
-|--------|------|--------------------|
-| BTN1   | 4    | Emergency PA Off   |
-| BTN2   | 5    | Spare              |
-| BTN3   | 6    | Spare              |
-| BTN4   | 7    | Spare              |
-| BTN5   | 48   | Spare              |
-| BTN6   | 47   | Spare              |
+| Button | GPIO | Purpose          |
+|--------|------|------------------|
+| BTN1   | 4    | Emergency PA Off |
+| BTN2   | 5    | Spare            |
+| BTN3   | 6    | Spare            |
+| BTN4   | 7    | Spare            |
+| BTN5   | 48   | Spare            |
+| BTN6   | 47   | Spare            |
 
-All GPIOs are configured as inputs with internal pull-ups enabled (active-low buttons).
+All GPIOs are configured as inputs with internal pull-ups enabled, triggering on falling edge (active-low).
 
 ## Event Flow
 
-The debounce mechanism follows a two-stage pattern that prevents both bounce noise and ISR-context limitations:
+### Debounce and Dispatch Sequence
 
 ```
-Physical press (falling edge)
-        |
-        v
-  btn_isr_handler()  [IRAM, ISR context]
-    1. Disable this GPIO's interrupt
-    2. Start (or restart) a 50 ms one-shot esp_timer
-        |
-        v
-  debounce_timer_cb()  [esp_timer task context]
-    3. Re-read GPIO level
-    4a. If GPIO is HIGH -> spurious press, skip action
-    4b. If GPIO is LOW  -> confirmed press:
-        - BTN1: enqueue SEQ_EVENT_EMERGENCY_PA_OFF to sequencer
-        - BTN2-6: invoke registered callback (if any)
-    5. Re-enable GPIO interrupt for the next press
+1. Physical button press pulls GPIO low (falling edge)
+       |
+2. btn_isr_handler (IRAM):
+       - Disables this GPIO's interrupt (prevents retriggering)
+       - Starts/restarts a 50 ms one-shot esp_timer
+       |
+3. debounce_timer_cb (esp_timer task context, 50 ms later):
+       - Re-reads GPIO level
+       - If GPIO is HIGH (released / spurious): re-arms interrupt, returns
+       - If GPIO is still LOW (confirmed press):
+            - BTN1: posts SEQ_EVENT_EMERGENCY_PA_OFF to sequencer queue
+            - BTN2-6: invokes registered callback (if any)
+       - Re-arms GPIO interrupt for next press
 ```
 
-Key details:
+### BTN1 Emergency PA Off Path
 
-- The ISR disables its own GPIO interrupt before starting the timer, so bounce edges during the 50 ms window are ignored entirely rather than queuing up repeated timer restarts.
-- The timer callback re-reads the GPIO, providing a second confirmation that the button is genuinely held low and not a transient glitch.
-- BTN1 sends a `seq_event_t` with `.type = SEQ_EVENT_EMERGENCY_PA_OFF` and `.data = 0` to the sequencer's FreeRTOS queue via `xQueueSend` with zero timeout (non-blocking).
-- Spare button callbacks are invoked synchronously within the `esp_timer` task, so long-running work in a callback will block other esp_timer operations.
+BTN1 has a dedicated, non-overridable path. On confirmed press, it constructs a `seq_event_t` with type `SEQ_EVENT_EMERGENCY_PA_OFF` and sends it to the sequencer's event queue via `xQueueSend` with zero timeout (non-blocking). The sequencer FSM handles this event by transitioning to a safe state and de-energizing the PA relay. This path cannot be intercepted or replaced by registering a callback -- `button_register_cb()` rejects `button_id == 1` with `ESP_ERR_INVALID_ARG`.
 
 ## Architecture Decisions
 
-- **ISR + one-shot timer debounce**: The ISR does the absolute minimum (disable interrupt, start timer) to stay fast and IRAM-safe. All decision logic runs in the timer callback at task level, where logging and queue operations are safe.
+- **ISR-to-timer debounce pattern**: The ISR does the absolute minimum (disable interrupt, start timer) to stay IRAM-safe and fast. All confirmation logic and dispatching runs in the `esp_timer` task context, which avoids ISR-context restrictions (no logging, no FreeRTOS queue calls from ISR, etc.).
 
-- **BTN1 hardcoded to sequencer queue**: Rather than using the callback mechanism, BTN1 directly posts to the sequencer event queue. This is deliberate for a safety-critical path -- the emergency PA off does not depend on any external code registering a callback, so it cannot be accidentally left unconnected.
+- **Per-button timers instead of a single shared timer**: Each button has its own `esp_timer` instance. This avoids race conditions when multiple buttons are pressed simultaneously and removes the need for any locking or arbitration.
 
-- **Interrupt disable/re-enable as the lock**: Instead of using a software flag or semaphore, the component disables the GPIO interrupt itself to prevent re-entrant debounce. This is simpler and avoids any shared-state concurrency issues between the ISR and the timer callback.
+- **Interrupt disable/re-enable as the debounce gate**: Rather than using a boolean flag or timestamp comparison, the ISR disables its own GPIO interrupt and the timer callback re-enables it. This is a clean pattern that guarantees exactly one timer firing per edge, with no window for retriggering.
 
-- **Tolerant ISR service installation**: `gpio_install_isr_service()` is called defensively -- if it returns `ESP_ERR_INVALID_STATE` (already installed), the error is silently accepted. This allows the component to work regardless of initialization order with other GPIO-interrupt users like the PTT component.
+- **BTN1 hard-wired to emergency off**: The Emergency PA Off function is not exposed through the callback registration API. This is a deliberate safety decision -- the critical shutdown path cannot be accidentally overwritten or left unregistered.
 
-- **Static allocation**: All button contexts are statically allocated in a module-scoped array. No heap allocation occurs at runtime, which is appropriate for a safety-related peripheral driver.
+- **1-indexed button IDs**: Button IDs (1--6) match physical labeling and schematic conventions. The internal array is 0-indexed; the conversion happens at the API boundary (`button_id - 1`).
+
+- **Tolerant ISR service installation**: `buttons_init()` calls `gpio_install_isr_service()` but treats `ESP_ERR_INVALID_STATE` (already installed) as success. This allows flexible initialization ordering -- if `ptt_init()` has already installed the service, buttons gracefully reuses it.
 
 ## Dependencies
 
-| Dependency    | Role                                                                 |
-|---------------|----------------------------------------------------------------------|
-| `hw_config`   | Provides `HW_BUTTON_COUNT`, `HW_BUTTON_GPIOS`, and per-button GPIO defines |
-| `sequencer`   | Provides `seq_event_t`, `SEQ_EVENT_EMERGENCY_PA_OFF`, and `sequencer_get_event_queue()` |
-| `driver`      | ESP-IDF GPIO driver (`driver/gpio.h`)                                |
-| `esp_timer`   | ESP-IDF high-resolution timer for debounce one-shots                 |
+| Dependency   | Role                                                                 |
+|--------------|----------------------------------------------------------------------|
+| `driver`     | ESP-IDF GPIO driver (`gpio_config`, `gpio_isr_handler_add`, etc.)    |
+| `esp_timer`  | One-shot timer for debounce confirmation                             |
+| `hw_config`  | GPIO pin assignments (`HW_BUTTON_GPIOS`) and count (`HW_BUTTON_COUNT`) |
+| `sequencer`  | Event queue access via `sequencer_get_event_queue()` and `seq_event_t` type |
+
+## Public API
+
+```c
+esp_err_t buttons_init(void);
+esp_err_t button_register_cb(uint8_t button_id, button_cb_t cb);
+```
+
+- `buttons_init()` -- Configures all button GPIOs, creates per-button debounce timers, and registers ISR handlers. Must be called **after** `sequencer_init()` (needs the event queue) and after the GPIO ISR service is installed (typically by `ptt_init()`).
+
+- `button_register_cb(button_id, cb)` -- Registers a press callback for a spare button. Valid `button_id` values are 2--6. Returns `ESP_ERR_INVALID_ARG` for button 1 or IDs above `HW_BUTTON_COUNT`. Callbacks run in the `esp_timer` task context.
 
 ## Usage Notes
 
-- **Initialization order**: Call `buttons_init()` after `sequencer_init()` so the event queue exists when BTN1 is pressed. The GPIO ISR service will be installed automatically if not already present.
+- **Initialization order matters**: The sequencer event queue must exist before `buttons_init()` is called. In `main.c`, the call order is: `sequencer_init()` -> `ptt_init()` -> `buttons_init()`.
 
-- **Callback context**: Spare-button callbacks run in the `esp_timer` task, not in an ISR. They are safe for most operations but should avoid blocking for extended periods, as this would delay all other esp_timer callbacks system-wide.
+- **Callbacks are not currently used**: As of the current codebase, `button_register_cb()` is defined but never called from application code. Buttons 2--6 are wired but inert until callbacks are registered.
 
-- **BTN1 is not configurable**: Attempting to register a callback for `button_id == 1` returns `ESP_ERR_INVALID_ARG`. The emergency PA off behavior is intentionally not overridable.
+- **No release detection**: The driver only detects button presses (falling edge). It does not track button release, long-press, or repeat events. If those are needed, the debounce timer callback would need to be extended.
 
-- **No release detection**: The component only detects presses (falling edges). It does not report button releases or support long-press / double-press patterns.
+- **Thread safety of callback registration**: `button_register_cb()` performs a simple pointer assignment with no locking. It is safe to call from any task before or during operation, but do not call it concurrently from multiple tasks for the same button ID.
 
-- **Debounce period**: Fixed at 50 ms via `BUTTONS_DEBOUNCE_MS`. Changing this value requires recompilation.
+- **Debounce period**: The `BUTTONS_DEBOUNCE_MS` constant is defined in `buttons.h` as 50 ms. Changing it affects all buttons uniformly.

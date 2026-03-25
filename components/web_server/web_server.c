@@ -10,7 +10,7 @@
 static const char *TAG = "web_server";
 
 static httpd_handle_t s_server = NULL;
-static app_config_t  *s_cfg    = NULL;
+static app_config_t *s_cfg = NULL;
 
 app_config_t *web_get_config(void)
 {
@@ -34,9 +34,9 @@ void web_register_api_static(httpd_handle_t server);
 static esp_err_t mount_spiffs(void)
 {
     esp_vfs_spiffs_conf_t conf = {
-        .base_path              = "/www",
-        .partition_label        = "storage",
-        .max_files              = 5,
+        .base_path = "/www",
+        .partition_label = "storage",
+        .max_files = 5,
         .format_if_mount_failed = true,
     };
 
@@ -57,9 +57,9 @@ static esp_err_t mount_spiffs(void)
 /* ---- WebSocket URI ------------------------------------------------------ */
 
 static const httpd_uri_t ws_uri = {
-    .uri          = "/ws",
-    .method       = HTTP_GET,
-    .handler      = ws_handler,
+    .uri = "/ws",
+    .method = HTTP_GET,
+    .handler = ws_handler,
     .is_websocket = true,
 };
 
@@ -74,12 +74,13 @@ esp_err_t web_server_init(app_config_t *cfg)
 
     /* Start HTTP server */
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.stack_size       = 6144;
-    config.server_port      = 80;
+    config.stack_size = 6144;
+    config.server_port = 80;
     config.max_uri_handlers = 40;
-    config.max_open_sockets = 4;
-    config.task_priority    = 5;
-    config.lru_purge_enable = true;
+    config.max_open_sockets = 7;   /* 3 WS + 4 HTTP to avoid LRU closing WS */
+    config.task_priority = 5;
+    config.lru_purge_enable = false; /* Disable: LRU can close WS sockets mid-push */
+    config.close_fn = ws_close_fd; /* Clean up WS client list on socket close */
 
     esp_err_t err = httpd_start(&s_server, &config);
     if (err != ESP_OK) {

@@ -5,6 +5,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define WS_MAX_CLIENTS 3
 
 /**
@@ -34,3 +38,13 @@ void ws_remove_client(int fd);
  * WebSocket URI handler — handles open/close and incoming frames.
  */
 esp_err_t ws_handler(httpd_req_t *req);
+
+/**
+ * Socket close callback — registered with httpd to clean up WS clients
+ * when their socket is closed for any reason (disconnect, LRU purge, etc.).
+ */
+void ws_close_fd(httpd_handle_t hd, int fd);
+
+#ifdef __cplusplus
+}
+#endif

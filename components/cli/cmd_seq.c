@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "esp_console.h"
+#include "esp_err.h"
 
 #include "config.h"
 #include "sequencer.h"
@@ -21,9 +22,9 @@ static void print_sequence(const char *label, const seq_step_t *steps, uint8_t n
     }
     const app_config_t *cfg = cli_get_config();
     for (int i = 0; i < num; i++) {
-        char label[24];
-        config_relay_label(cfg, steps[i].relay_id, label, sizeof(label));
-        printf("  %d: %-12s %s  %dms\n", i + 1, label,
+        char relay_label[24];
+        config_relay_label(cfg, steps[i].relay_id, relay_label, sizeof(relay_label));
+        printf("  %d: %-12s %s  %dms\n", i + 1, relay_label,
                steps[i].state ? "ON" : "OFF",
                steps[i].delay_ms);
     }
@@ -79,7 +80,7 @@ static int parse_steps(int argc, char **argv, int first_arg,
         }
 
         out[i].relay_id = (uint8_t)relay_id;
-        out[i].state    = on ? 1 : 0;
+        out[i].state = on ? 1 : 0;
         out[i].delay_ms = (uint16_t)delay_ms;
     }
 
@@ -142,9 +143,9 @@ static int cmd_seq_handler(int argc, char **argv)
         return 1;
     }
 
-    seq_step_t *steps    = is_tx ? cfg->tx_steps    : cfg->rx_steps;
-    uint8_t    *num_ptr  = is_tx ? &cfg->tx_num_steps : &cfg->rx_num_steps;
-    const char *label    = is_tx ? "TX" : "RX";
+    seq_step_t *steps = is_tx ? cfg->tx_steps : cfg->rx_steps;
+    uint8_t *num_ptr = is_tx ? &cfg->tx_num_steps : &cfg->rx_num_steps;
+    const char *label = is_tx ? "TX" : "RX";
 
     if (strcmp(argv[2], "show") == 0) {
         print_sequence(label, steps, *num_ptr);
@@ -176,13 +177,13 @@ static int cmd_seq_handler(int argc, char **argv)
     return 1;
 }
 
-void register_cmd_seq(void)
+void cli_register_cmd_seq(void)
 {
     const esp_console_cmd_t cmd = {
         .command = "seq",
-        .help    = "Sequence editor: seq <tx|rx> <show|set> | seq <save|apply>",
-        .hint    = NULL,
-        .func    = &cmd_seq_handler,
+        .help = "Sequence editor: seq <tx|rx> <show|set> | seq <save|apply>",
+        .hint = NULL,
+        .func = &cmd_seq_handler,
     };
     esp_console_cmd_register(&cmd);
 }

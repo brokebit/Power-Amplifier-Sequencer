@@ -3,6 +3,9 @@
 #include "esp_log.h"
 
 #include "driver/gpio.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+
 #include "hw_config.h"
 #include "sequencer.h"
 #include "system_state.h"
@@ -31,10 +34,10 @@ esp_err_t ptt_init(void)
 {
     gpio_config_t cfg = {
         .pin_bit_mask = (1ULL << HW_PTT_GPIO),
-        .mode         = GPIO_MODE_INPUT,
-        .pull_up_en   = GPIO_PULLUP_ENABLE,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type    = GPIO_INTR_ANYEDGE,
+        .intr_type = GPIO_INTR_ANYEDGE,
     };
 
     esp_err_t err = gpio_config(&cfg);

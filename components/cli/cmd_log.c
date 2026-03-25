@@ -43,13 +43,13 @@ static int cmd_log_handler(int argc, char **argv)
     return 0;
 }
 
-void register_cmd_log(void)
+void cli_register_cmd_log(void)
 {
     const esp_console_cmd_t cmd = {
         .command = "log",
-        .help    = "Set log level: log <on|off|error|warn|info|debug|verbose> [tag]",
-        .hint    = NULL,
-        .func    = &cmd_log_handler,
+        .help = "Set log level: log <on|off|error|warn|info|debug|verbose> [tag]",
+        .hint = NULL,
+        .func = &cmd_log_handler,
     };
     esp_console_cmd_register(&cmd);
 }

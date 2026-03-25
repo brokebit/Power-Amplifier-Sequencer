@@ -1,5 +1,9 @@
 #pragma once
 
+#include "esp_err.h"
+
+#include "driver/i2c_master.h"
+
 /* =========================================================
  * ads1115.h — ADS1115 16-bit ADC I2C driver
  *
@@ -12,9 +16,6 @@
  * reads with ads1115_read_raw().
  * ========================================================= */
 
-#include "esp_err.h"
-#include "driver/i2c_master.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -23,20 +24,20 @@ typedef struct ads1115_dev *ads1115_handle_t;
 
 typedef enum
 {
-    ADS1115_CHANNEL_0 = 0,   /* AIN0 vs GND */
-    ADS1115_CHANNEL_1,        /* AIN1 vs GND */
-    ADS1115_CHANNEL_2,        /* AIN2 vs GND */
-    ADS1115_CHANNEL_3,        /* AIN3 vs GND */
+    ADS1115_CHANNEL_0 = 0, /* AIN0 vs GND */
+    ADS1115_CHANNEL_1, /* AIN1 vs GND */
+    ADS1115_CHANNEL_2, /* AIN2 vs GND */
+    ADS1115_CHANNEL_3 /* AIN3 vs GND */
 } ads1115_channel_t;
 
 typedef enum
 {
-    ADS1115_PGA_6144 = 0,   /* ±6.144 V — 187.5 µV/LSB */
-    ADS1115_PGA_4096,        /* ±4.096 V — 125.0 µV/LSB */
-    ADS1115_PGA_2048,        /* ±2.048 V —  62.5 µV/LSB */
-    ADS1115_PGA_1024,        /* ±1.024 V —  31.3 µV/LSB */
-    ADS1115_PGA_0512,        /* ±0.512 V —  15.6 µV/LSB */
-    ADS1115_PGA_0256,        /* ±0.256 V —   7.8 µV/LSB */
+    ADS1115_PGA_6144 = 0, /* ±6.144 V — 187.5 µV/LSB */
+    ADS1115_PGA_4096, /* ±4.096 V — 125.0 µV/LSB */
+    ADS1115_PGA_2048, /* ±2.048 V —  62.5 µV/LSB */
+    ADS1115_PGA_1024, /* ±1.024 V —  31.3 µV/LSB */
+    ADS1115_PGA_0512, /* ±0.512 V —  15.6 µV/LSB */
+    ADS1115_PGA_0256 /* ±0.256 V —   7.8 µV/LSB */
 } ads1115_pga_t;
 
 /**

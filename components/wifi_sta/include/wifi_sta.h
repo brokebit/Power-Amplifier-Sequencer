@@ -6,6 +6,10 @@
 
 #include "esp_err.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* =========================================================
  * wifi_sta.h — WiFi Station mode manager
  *
@@ -16,10 +20,6 @@
  * Public API uses app_wifi_ prefix to avoid symbol collision
  * with ESP-IDF internal wifi_sta_* symbols.
  * ========================================================= */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /**
  * Initialise WiFi subsystem: event loop, netif, driver.

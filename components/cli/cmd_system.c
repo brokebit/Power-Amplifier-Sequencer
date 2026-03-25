@@ -5,6 +5,7 @@
 #include "esp_console.h"
 #include "esp_idf_version.h"
 #include "esp_system.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -31,21 +32,21 @@ static int cmd_version_handler(int argc, char **argv)
     return 0;
 }
 
-void register_cmd_system(void)
+void cli_register_cmd_system(void)
 {
     const esp_console_cmd_t reboot_cmd = {
         .command = "reboot",
-        .help    = "Restart the ESP32",
-        .hint    = NULL,
-        .func    = &cmd_reboot_handler,
+        .help = "Restart the ESP32",
+        .hint = NULL,
+        .func = &cmd_reboot_handler,
     };
     esp_console_cmd_register(&reboot_cmd);
 
     const esp_console_cmd_t version_cmd = {
         .command = "version",
-        .help    = "Show firmware and chip info",
-        .hint    = NULL,
-        .func    = &cmd_version_handler,
+        .help = "Show firmware and chip info",
+        .hint = NULL,
+        .func = &cmd_version_handler,
     };
     esp_console_cmd_register(&version_cmd);
 }

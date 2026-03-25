@@ -14,17 +14,17 @@ app_config_t *cli_get_config(void)
 }
 
 /* Forward declarations — each cmd_*.c file provides a register function */
-void register_cmd_status(void);
-void register_cmd_system(void);
-void register_cmd_log(void);
-void register_cmd_config(void);
-void register_cmd_relay(void);
-void register_cmd_fault(void);
-void register_cmd_seq(void);
-void register_cmd_adc(void);
-void register_cmd_monitor(void);
-void register_cmd_wifi(void);
-void register_cmd_ota(void);
+void cli_register_cmd_status(void);
+void cli_register_cmd_system(void);
+void cli_register_cmd_log(void);
+void cli_register_cmd_config(void);
+void cli_register_cmd_relay(void);
+void cli_register_cmd_fault(void);
+void cli_register_cmd_seq(void);
+void cli_register_cmd_adc(void);
+void cli_register_cmd_monitor(void);
+void cli_register_cmd_wifi(void);
+void cli_register_cmd_ota(void);
 
 esp_err_t cli_init(app_config_t *cfg)
 {
@@ -45,17 +45,17 @@ esp_err_t cli_init(app_config_t *cfg)
     }
 
     /* Register commands before starting the REPL */
-    register_cmd_status();
-    register_cmd_system();
-    register_cmd_log();
-    register_cmd_config();
-    register_cmd_relay();
-    register_cmd_fault();
-    register_cmd_seq();
-    register_cmd_adc();
-    register_cmd_monitor();
-    register_cmd_wifi();
-    register_cmd_ota();
+    cli_register_cmd_status();
+    cli_register_cmd_system();
+    cli_register_cmd_log();
+    cli_register_cmd_config();
+    cli_register_cmd_relay();
+    cli_register_cmd_fault();
+    cli_register_cmd_seq();
+    cli_register_cmd_adc();
+    cli_register_cmd_monitor();
+    cli_register_cmd_wifi();
+    cli_register_cmd_ota();
 
     /* Suppress logging by default so the REPL prompt stays clean */
     esp_log_level_set("*", ESP_LOG_NONE);

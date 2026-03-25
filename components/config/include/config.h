@@ -6,20 +6,20 @@
 
 #include "hw_config.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* =========================================================
  * config.h — NVS-backed runtime configuration
  * ========================================================= */
 
-#define SEQ_MAX_STEPS       8    /* Max relay steps per TX or RX sequence */
-#define CFG_RELAY_NAME_LEN  16   /* Max relay name length including null terminator */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define SEQ_MAX_STEPS 8    /* Max relay steps per TX or RX sequence */
+#define CFG_RELAY_NAME_LEN 16   /* Max relay name length including null terminator */
 
 /* NVS namespace and blob key */
-#define CFG_NVS_NAMESPACE   "seq_cfg"
-#define CFG_NVS_KEY         "app_cfg"
+#define CFG_NVS_NAMESPACE "seq_cfg"
+#define CFG_NVS_KEY "app_cfg"
 
 /* ---------------------------------------------------------
  * seq_step_t — one step in a TX or RX relay sequence
@@ -28,8 +28,8 @@ extern "C" {
  * delay_ms: pause after this step before the next
  * --------------------------------------------------------- */
 typedef struct {
-    uint8_t  relay_id;
-    uint8_t  state;       /* bool — packed as uint8 for NVS blob portability */
+    uint8_t relay_id;
+    uint8_t state;       /* bool — packed as uint8 for NVS blob portability */
     uint16_t delay_ms;
 } seq_step_t;
 
@@ -40,30 +40,30 @@ typedef struct {
 typedef struct {
     /* Relay sequences */
     seq_step_t tx_steps[SEQ_MAX_STEPS];
-    uint8_t    tx_num_steps;
+    uint8_t tx_num_steps;
 
     seq_step_t rx_steps[SEQ_MAX_STEPS];
-    uint8_t    rx_num_steps;
+    uint8_t rx_num_steps;
 
     /* Fault thresholds */
-    float      swr_fault_threshold;       /* default: 3.0  */
-    float      temp1_fault_threshold_c;  /* default: 65.0 */
-    float      temp2_fault_threshold_c;  /* default: 65.0 */
+    float swr_fault_threshold;       /* default: 3.0  */
+    float temp1_fault_threshold_c;   /* default: 65.0 */
+    float temp2_fault_threshold_c;   /* default: 65.0 */
 
     /* PA relay — used by emergency_shutdown() to immediately de-energise the PA */
-    uint8_t    pa_relay_id;              /* default: 2 (relay IDs are 1-6) */
+    uint8_t pa_relay_id;             /* default: 2 (relay IDs are 1-6) */
 
     /* Power meter calibration — P = cal_factor × V² */
-    float      fwd_power_cal_factor;     /* default: 1.0  */
-    float      ref_power_cal_factor;     /* default: 1.0  */
+    float fwd_power_cal_factor;      /* default: 1.0  */
+    float ref_power_cal_factor;      /* default: 1.0  */
 
     /* Thermistor (Steinhart-Hart beta model) */
-    float      thermistor_beta;          /* default: 3950   */
-    float      thermistor_r0_ohms;       /* default: 100000 (at 25°C) */
-    float      thermistor_r_series_ohms; /* default: 100000 */
+    float thermistor_beta;           /* default: 3950   */
+    float thermistor_r0_ohms;        /* default: 100000 (at 25°C) */
+    float thermistor_r_series_ohms;  /* default: 100000 */
 
     /* Relay display names — empty string means no alias */
-    char       relay_names[HW_RELAY_COUNT][CFG_RELAY_NAME_LEN];
+    char relay_names[HW_RELAY_COUNT][CFG_RELAY_NAME_LEN];
 } app_config_t;
 
 /* ---------------------------------------------------------

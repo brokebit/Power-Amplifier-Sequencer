@@ -107,13 +107,13 @@ static int cmd_wifi_handler(int argc, char **argv)
     return 1;
 }
 
-void register_cmd_wifi(void)
+void cli_register_cmd_wifi(void)
 {
     const esp_console_cmd_t cmd = {
         .command = "wifi",
-        .help    = "WiFi management: wifi <status|config|connect|disconnect|scan|enable|disable|erase>",
-        .hint    = NULL,
-        .func    = &cmd_wifi_handler,
+        .help = "WiFi management: wifi <status|config|connect|disconnect|scan|enable|disable|erase>",
+        .hint = NULL,
+        .func = &cmd_wifi_handler,
     };
     esp_console_cmd_register(&cmd);
 }

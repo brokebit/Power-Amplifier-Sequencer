@@ -1,8 +1,8 @@
 #include <string.h>
 
-#include "cJSON.h"
 #include "esp_http_server.h"
 
+#include "cJSON.h"
 #include "config.h"
 #include "hw_config.h"
 
@@ -95,18 +95,22 @@ static esp_err_t api_config_set_handler(httpd_req_t *req)
         return web_json_error(req, 400, "value must be a number or string");
     }
 
+    /* Copy key before freeing body */
+    char key_str[32];
+    snprintf(key_str, sizeof(key_str), "%s", key_json->valuestring);
+    cJSON_Delete(body);
+
     app_config_t *cfg = web_get_config();
     char err_msg[64] = {0};
-    esp_err_t err = config_set_by_key(cfg, key_json->valuestring, val_str,
+    esp_err_t err = config_set_by_key(cfg, key_str, val_str,
                                        err_msg, sizeof(err_msg));
-    cJSON_Delete(body);
 
     if (err != ESP_OK) {
         return web_json_error(req, 400, err_msg[0] ? err_msg : "invalid key or value");
     }
 
     cJSON *data = cJSON_CreateObject();
-    cJSON_AddStringToObject(data, "key", key_json->valuestring);
+    cJSON_AddStringToObject(data, "key", key_str);
     cJSON_AddStringToObject(data, "value", val_str);
     return web_json_ok(req, data);
 }
@@ -137,29 +141,29 @@ static esp_err_t api_config_defaults_handler(httpd_req_t *req)
 void web_register_api_config(httpd_handle_t server)
 {
     const httpd_uri_t get_uri = {
-        .uri     = "/api/config",
-        .method  = HTTP_GET,
+        .uri ="/api/config",
+        .method =HTTP_GET,
         .handler = api_config_get_handler,
     };
     httpd_register_uri_handler(server, &get_uri);
 
     const httpd_uri_t set_uri = {
-        .uri     = "/api/config",
-        .method  = HTTP_POST,
+        .uri ="/api/config",
+        .method =HTTP_POST,
         .handler = api_config_set_handler,
     };
     httpd_register_uri_handler(server, &set_uri);
 
     const httpd_uri_t save_uri = {
-        .uri     = "/api/config/save",
-        .method  = HTTP_POST,
+        .uri ="/api/config/save",
+        .method =HTTP_POST,
         .handler = api_config_save_handler,
     };
     httpd_register_uri_handler(server, &save_uri);
 
     const httpd_uri_t defaults_uri = {
-        .uri     = "/api/config/defaults",
-        .method  = HTTP_POST,
+        .uri ="/api/config/defaults",
+        .method =HTTP_POST,
         .handler = api_config_defaults_handler,
     };
     httpd_register_uri_handler(server, &defaults_uri);

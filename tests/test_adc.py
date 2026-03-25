@@ -1,0 +1,51 @@
+"""Tests for /api/adc endpoints."""
+
+import pytest
+
+
+class TestGetAdcAll:
+    """GET /api/adc — read all 4 channels."""
+
+    def test_returns_ok(self, api):
+        data = api.get_ok("/api/adc")
+        assert data is not None
+
+    def test_has_channels_array(self, api):
+        data = api.get_ok("/api/adc")
+        assert isinstance(data["channels"], list)
+        assert len(data["channels"]) == 4
+
+    def test_each_channel_has_fields(self, api):
+        data = api.get_ok("/api/adc")
+        expected_names = ["fwd_power", "ref_power", "temp_right", "temp_left"]
+        for i, ch in enumerate(data["channels"]):
+            assert ch["ch"] == i
+            assert ch["name"] == expected_names[i]
+            # voltage may be null on read error, or a number
+            assert ch["voltage"] is None or isinstance(ch["voltage"], (int, float))
+
+
+class TestGetAdcSingle:
+    """GET /api/adc?ch=N — read single channel."""
+
+    @pytest.mark.parametrize("ch,name", [
+        (0, "fwd_power"),
+        (1, "ref_power"),
+        (2, "temp_right"),
+        (3, "temp_left"),
+    ])
+    def test_read_each_channel(self, api, ch, name):
+        data = api.get_ok(f"/api/adc?ch={ch}")
+        assert data["ch"] == ch
+        assert data["name"] == name
+        assert isinstance(data["voltage"], (int, float))
+
+    def test_invalid_channel_negative(self, api):
+        resp = api.get("/api/adc?ch=-1")
+        body = resp.json()
+        assert body["ok"] is False
+
+    def test_invalid_channel_four(self, api):
+        resp = api.get("/api/adc?ch=4")
+        body = resp.json()
+        assert body["ok"] is False

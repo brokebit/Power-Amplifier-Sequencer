@@ -11,6 +11,7 @@
 #include "freertos/timers.h"
 
 #include "nvs.h"
+
 #include "system_state.h"
 
 #include "wifi_sta.h"
@@ -19,14 +20,14 @@ static const char *TAG = "wifi_sta";
 
 /* NVS namespace and keys */
 #define WIFI_NVS_NAMESPACE "wifi_cfg"
-#define NVS_KEY_SSID       "ssid"
-#define NVS_KEY_PASS       "pass"
-#define NVS_KEY_ENABLED    "enabled"
+#define NVS_KEY_SSID "ssid"
+#define NVS_KEY_PASS "pass"
+#define NVS_KEY_ENABLED "enabled"
 
 /* Retry backoff */
-#define RETRY_INITIAL_MS    1000
-#define RETRY_MAX_MS        30000
-#define RETRY_BACKOFF       2
+#define RETRY_INITIAL_MS 1000
+#define RETRY_MAX_MS 30000
+#define RETRY_BACKOFF 2
 
 /* Internal state */
 static esp_netif_t *s_netif = NULL;
@@ -279,7 +280,7 @@ esp_err_t app_wifi_scan_results(wifi_scan_result_t **results, uint16_t *out_coun
 
     wifi_scan_config_t scan_cfg = {
         .show_hidden = false,
-        .scan_type   = WIFI_SCAN_TYPE_ACTIVE,
+        .scan_type = WIFI_SCAN_TYPE_ACTIVE,
     };
 
     esp_err_t err = esp_wifi_scan_start(&scan_cfg, true);
@@ -309,8 +310,8 @@ esp_err_t app_wifi_scan_results(wifi_scan_result_t **results, uint16_t *out_coun
     for (int i = 0; i < count; i++) {
         strncpy(out[i].ssid, (char *)records[i].ssid, sizeof(out[i].ssid) - 1);
         out[i].ssid[sizeof(out[i].ssid) - 1] = '\0';
-        out[i].rssi     = records[i].rssi;
-        out[i].channel  = records[i].primary;
+        out[i].rssi = records[i].rssi;
+        out[i].channel = records[i].primary;
         out[i].authmode = (uint8_t)records[i].authmode;
     }
 
@@ -340,13 +341,13 @@ esp_err_t app_wifi_scan(void)
     for (int i = 0; i < count; i++) {
         const char *auth;
         switch (results[i].authmode) {
-        case WIFI_AUTH_OPEN:          auth = "Open";   break;
-        case WIFI_AUTH_WPA_PSK:       auth = "WPA";    break;
-        case WIFI_AUTH_WPA2_PSK:      auth = "WPA2";   break;
-        case WIFI_AUTH_WPA3_PSK:      auth = "WPA3";   break;
-        case WIFI_AUTH_WPA_WPA2_PSK:  auth = "WPA/2";  break;
+        case WIFI_AUTH_OPEN: auth = "Open"; break;
+        case WIFI_AUTH_WPA_PSK: auth = "WPA"; break;
+        case WIFI_AUTH_WPA2_PSK: auth = "WPA2"; break;
+        case WIFI_AUTH_WPA3_PSK: auth = "WPA3"; break;
+        case WIFI_AUTH_WPA_WPA2_PSK: auth = "WPA/2"; break;
         case WIFI_AUTH_WPA2_WPA3_PSK: auth = "WPA2/3"; break;
-        default:                      auth = "Other";  break;
+        default: auth = "Other"; break;
         }
         printf("%-32s  %4d  %2d  %s\n",
                results[i].ssid, results[i].rssi,

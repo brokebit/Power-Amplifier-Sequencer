@@ -2,26 +2,27 @@
 
 #include "esp_console.h"
 
-#include "cli.h"
 #include "config.h"
 #include "hw_config.h"
 #include "sequencer.h"
 #include "system_state.h"
 
+#include "cli.h"
+
 static const char *s_state_names[] = {
-    [SEQ_STATE_RX]            = "RX",
+    [SEQ_STATE_RX] = "RX",
     [SEQ_STATE_SEQUENCING_TX] = "SEQ_TX",
-    [SEQ_STATE_TX]            = "TX",
+    [SEQ_STATE_TX] = "TX",
     [SEQ_STATE_SEQUENCING_RX] = "SEQ_RX",
-    [SEQ_STATE_FAULT]         = "FAULT",
+    [SEQ_STATE_FAULT] = "FAULT"
 };
 
 static const char *s_fault_names[] = {
-    [SEQ_FAULT_NONE]       = "none",
-    [SEQ_FAULT_HIGH_SWR]   = "HIGH_SWR",
+    [SEQ_FAULT_NONE] = "none",
+    [SEQ_FAULT_HIGH_SWR] = "HIGH_SWR",
     [SEQ_FAULT_OVER_TEMP1] = "OVER_TEMP1",
     [SEQ_FAULT_OVER_TEMP2] = "OVER_TEMP2",
-    [SEQ_FAULT_EMERGENCY]  = "EMERGENCY",
+    [SEQ_FAULT_EMERGENCY] = "EMERGENCY"
 };
 
 static int cmd_status_handler(int argc, char **argv)
@@ -65,13 +66,13 @@ static int cmd_status_handler(int argc, char **argv)
     return 0;
 }
 
-void register_cmd_status(void)
+void cli_register_cmd_status(void)
 {
     const esp_console_cmd_t cmd = {
         .command = "status",
-        .help    = "Show system state (PTT, relays, power, SWR, temps)",
-        .hint    = NULL,
-        .func    = &cmd_status_handler,
+        .help = "Show system state (PTT, relays, power, SWR, temps)",
+        .hint = NULL,
+        .func = &cmd_status_handler,
     };
     esp_console_cmd_register(&cmd);
 }

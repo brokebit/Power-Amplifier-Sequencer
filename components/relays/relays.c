@@ -6,7 +6,6 @@
 
 #include "relays.h"
 
-
 static const char *TAG = "relays";
 
 static const int s_relay_gpios[HW_RELAY_COUNT] = HW_RELAY_GPIOS;
@@ -14,10 +13,10 @@ static const int s_relay_gpios[HW_RELAY_COUNT] = HW_RELAY_GPIOS;
 esp_err_t relays_init(void)
 {
     gpio_config_t cfg = {
-        .mode         = GPIO_MODE_OUTPUT,
-        .pull_up_en   = GPIO_PULLUP_DISABLE,
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type    = GPIO_INTR_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
         .pin_bit_mask = 0,
     };
 
@@ -40,7 +39,7 @@ esp_err_t relays_init(void)
 esp_err_t relay_set(uint8_t relay_id, bool on)
 {
     if (relay_id < 1 || relay_id > HW_RELAY_COUNT) {
-        ESP_LOGE(TAG, "relay_set: invalid relay_id %d (must be 1–%d)", relay_id, HW_RELAY_COUNT);
+        ESP_LOGE(TAG, "relay_set: invalid relay_id %d (must be 1-%d)", relay_id, HW_RELAY_COUNT);
         return ESP_ERR_INVALID_ARG;
     }
 

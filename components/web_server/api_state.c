@@ -1,8 +1,10 @@
-#include "cJSON.h"
+#include <stdio.h>
+
 #include "esp_app_desc.h"
 #include "esp_chip_info.h"
 #include "esp_http_server.h"
 
+#include "cJSON.h"
 #include "hw_config.h"
 #include "sequencer.h"
 #include "system_state.h"
@@ -13,19 +15,19 @@
 /* ---- state name tables -------------------------------------------------- */
 
 static const char *s_state_names[] = {
-    [SEQ_STATE_RX]            = "RX",
+    [SEQ_STATE_RX] = "RX",
     [SEQ_STATE_SEQUENCING_TX] = "SEQ_TX",
-    [SEQ_STATE_TX]            = "TX",
+    [SEQ_STATE_TX] = "TX",
     [SEQ_STATE_SEQUENCING_RX] = "SEQ_RX",
-    [SEQ_STATE_FAULT]         = "FAULT",
+    [SEQ_STATE_FAULT] = "FAULT",
 };
 
 static const char *s_fault_names[] = {
-    [SEQ_FAULT_NONE]       = "none",
-    [SEQ_FAULT_HIGH_SWR]   = "HIGH_SWR",
+    [SEQ_FAULT_NONE] = "none",
+    [SEQ_FAULT_HIGH_SWR] = "HIGH_SWR",
     [SEQ_FAULT_OVER_TEMP1] = "OVER_TEMP1",
     [SEQ_FAULT_OVER_TEMP2] = "OVER_TEMP2",
-    [SEQ_FAULT_EMERGENCY]  = "EMERGENCY",
+    [SEQ_FAULT_EMERGENCY] = "EMERGENCY",
 };
 
 /* ---- helpers ------------------------------------------------------------ */
@@ -120,16 +122,16 @@ static esp_err_t api_version_handler(httpd_req_t *req)
 void web_register_api_state(httpd_handle_t server)
 {
     const httpd_uri_t state_uri = {
-        .uri     = "/api/state",
-        .method  = HTTP_GET,
-        .handler = api_state_handler,
+        .uri ="/api/state",
+        .method =HTTP_GET,
+        .handler =api_state_handler,
     };
     httpd_register_uri_handler(server, &state_uri);
 
     const httpd_uri_t version_uri = {
-        .uri     = "/api/version",
-        .method  = HTTP_GET,
-        .handler = api_version_handler,
+        .uri ="/api/version",
+        .method =HTTP_GET,
+        .handler =api_version_handler,
     };
     httpd_register_uri_handler(server, &version_uri);
 }

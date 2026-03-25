@@ -1,5 +1,9 @@
 #pragma once
 
+#include <stddef.h>
+
+#include "esp_err.h"
+
 /* =========================================================
  * ota.h -- OTA firmware update manager
  *
@@ -8,8 +12,6 @@
  *
  * Public API uses app_ota_ prefix.
  * ========================================================= */
-
-#include "esp_err.h"
 
 #ifdef __cplusplus
 extern "C" {

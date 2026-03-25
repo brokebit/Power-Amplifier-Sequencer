@@ -4,10 +4,6 @@
 
 #include "esp_err.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* =========================================================
  * buttons.h — Debounced GPIO button driver
  *
@@ -24,7 +20,11 @@ extern "C" {
  * or call gpio_install_isr_service() yourself beforehand).
  * ========================================================= */
 
-#define BUTTONS_DEBOUNCE_MS  50
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define BUTTONS_DEBOUNCE_MS 50
 
 /** Callback type for spare buttons. button_id is 1-indexed (2–6). */
 typedef void (*button_cb_t)(uint8_t button_id);

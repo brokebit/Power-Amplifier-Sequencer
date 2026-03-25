@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "esp_console.h"
+#include "esp_err.h"
 
 #include "config.h"
 #include "hw_config.h"
@@ -111,13 +112,13 @@ static int cmd_relay_handler(int argc, char **argv)
     return (ret == ESP_OK) ? 0 : 1;
 }
 
-void register_cmd_relay(void)
+void cli_register_cmd_relay(void)
 {
     const esp_console_cmd_t cmd = {
         .command = "relay",
-        .help    = "Relay control: relay show | relay <1-6> <on|off> | relay name [<1-6>] [<label>]",
-        .hint    = NULL,
-        .func    = &cmd_relay_handler,
+        .help = "Relay control: relay show | relay <1-6> <on|off> | relay name [<1-6>] [<label>]",
+        .hint = NULL,
+        .func = &cmd_relay_handler,
     };
     esp_console_cmd_register(&cmd);
 }

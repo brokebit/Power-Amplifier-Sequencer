@@ -2,159 +2,172 @@
 
 ## Overview
 
-The monitor component is a periodic ADC sensing task that reads forward/reflected RF power and two thermistor temperatures from an ADS1115 16-bit ADC using single-shot conversions over I2C. It converts raw voltages into engineering units (watts, SWR, degrees Celsius), checks them against configurable fault thresholds, and injects fault events into the sequencer's event queue when a threshold is breached. Live readings are published to the `system_state` blackboard each cycle. ADC access is mutex-protected, allowing other tasks (e.g. CLI) to perform ad-hoc channel reads via `monitor_read_channel()` without bus conflicts. Configuration (thresholds, calibration) can be updated at runtime via `monitor_update_config()`.
+The monitor component is a continuously-running FreeRTOS task that samples four ADC channels on an ADS1115 (I2C address 0x49) in single-shot mode, converts the raw readings into forward power, reflected power, SWR, and two PA temperature values, and publishes the results to the shared `system_state` blackboard every cycle (~500 ms). When any reading exceeds a configurable threshold, the monitor injects a fault event into the sequencer's event queue, triggering the sequencer's protection logic (immediate transition to fault-latched state and PA de-energisation).
+
+The component owns the I2C master bus and both ADS1115 chip handles. It is the sole producer of sensor data in the system and one of three event producers (alongside PTT and buttons) that feed the sequencer FSM.
+
+## Channel Map
+
+| ADS1115 Channel | Signal          | Physical Input              |
+|-----------------|-----------------|-----------------------------|
+| AIN0            | Forward power   | Directional coupler forward |
+| AIN1            | Reflected power | Directional coupler reverse |
+| AIN2            | Temperature 1   | NTC thermistor (PA)         |
+| AIN3            | Temperature 2   | NTC thermistor (PA)         |
+
+Both ADS1115 chips are initialised with PGA +/-4.096 V. Only chip 1 (0x49) is actively sampled; chip 0 (0x48) is initialised but reserved for future expansion.
 
 ## Key Data Structures
 
 ### Configuration (`app_config_t` fields consumed)
 
-| Field | Default | Purpose |
-|---|---|---|
-| `fwd_power_cal_factor` | 1.0 | Multiplier applied to V-squared for forward power (W) |
-| `ref_power_cal_factor` | 1.0 | Multiplier applied to V-squared for reflected power (W) |
-| `swr_fault_threshold` | 3.0 | SWR above which a `SEQ_FAULT_HIGH_SWR` is sent |
-| `temp_fault_threshold_c` | 65.0 | Temperature (C) above which an over-temp fault is sent |
-| `thermistor_beta` | 3950 | NTC beta coefficient for Steinhart-Hart equation |
-| `thermistor_r0_ohms` | 100000 | NTC resistance at 25 C |
-| `thermistor_r_series_ohms` | 100000 | Series resistor in the voltage divider |
+The monitor copies the full `app_config_t` at init and on runtime updates via `monitor_update_config()`. The fields it uses:
 
-A full copy of `app_config_t` is stored in `s_cfg` at init time. It can be replaced at runtime by calling `monitor_update_config()`.
+| Field                       | Purpose                                          | Default  |
+|-----------------------------|--------------------------------------------------|----------|
+| `fwd_power_cal_factor`      | Calibration: `P_fwd = factor * V^2`              | 1.0      |
+| `ref_power_cal_factor`      | Calibration: `P_ref = factor * V^2`              | 1.0      |
+| `swr_fault_threshold`       | SWR above this triggers `SEQ_FAULT_HIGH_SWR`     | 3.0      |
+| `temp1_fault_threshold_c`   | Temp1 above this triggers `SEQ_FAULT_OVER_TEMP1` | 65.0 C   |
+| `temp2_fault_threshold_c`   | Temp2 above this triggers `SEQ_FAULT_OVER_TEMP2` | 65.0 C   |
+| `thermistor_beta`           | Steinhart-Hart beta coefficient                  | 3950     |
+| `thermistor_r0_ohms`        | NTC resistance at 25 C (T0)                      | 100k ohm |
+| `thermistor_r_series_ohms`  | Series resistor in the voltage divider           | 100k ohm |
 
-### Module State
+### Internal State
 
-| Variable | Type | Description |
-|---|---|---|
-| `s_chip[2]` | `ads1115_handle_t` | ADS1115 handles: `[0]` at 0x48 (reserved), `[1]` at 0x49 (active) |
-| `s_adc_queue` | `QueueHandle_t` | Queue (depth 8) signalled by ALERT GPIO ISR when a conversion completes |
-| `s_adc_mutex` | `SemaphoreHandle_t` | Mutex protecting all ADC access -- shared between `monitor_task` and external callers via `monitor_read_channel()` |
+- **`s_cfg`** (`app_config_t`) -- Local copy of configuration, updated atomically via `memcpy`.
+- **`s_bus`** (`i2c_master_bus_handle_t`) -- The I2C master bus, owned and created by monitor.
+- **`s_chip[2]`** (`ads1115_handle_t`) -- Handles for both ADS1115 devices. Index 0 = 0x48 (reserved), index 1 = 0x49 (active).
+- **`s_adc_queue`** (`QueueHandle_t`) -- FreeRTOS queue (depth 8) carrying chip-index bytes from the ALERT/RDY ISR. Used to synchronise single-shot conversions.
+- **`s_adc_mutex`** (`SemaphoreHandle_t`) -- Mutex arbitrating ADC access between the monitor task loop and external callers (e.g. CLI `adc` command via `monitor_read_channel()`).
 
-### Fault Types Emitted
+### Published State (via `system_state`)
 
-| Fault | Trigger |
-|---|---|
-| `SEQ_FAULT_HIGH_SWR` | SWR exceeds threshold while forward power >= 0.1 W |
-| `SEQ_FAULT_OVER_TEMP1` | Thermistor 1 reading exceeds temperature threshold |
-| `SEQ_FAULT_OVER_TEMP2` | Thermistor 2 reading exceeds temperature threshold |
+Each cycle, the monitor calls `system_state_set_sensors()` to publish:
+
+```c
+system_state_set_sensors(fwd_power_w, ref_power_w, swr, temp1_c, temp2_c);
+```
+
+These values are immediately available to any consumer calling `system_state_get()` (display, CLI, web server).
+
+## Conversion Mathematics
+
+### Power
+
+```
+P = cal_factor * V_adc^2
+```
+
+Squared-voltage relationship assumes a power detector whose output voltage is proportional to the square root of RF power. The cal_factor absorbs coupler loss, detector sensitivity, and unit scaling.
+
+### SWR
+
+```
+gamma = V_reflected / V_forward
+SWR   = (1 + gamma) / (1 - gamma)
+```
+
+SWR checking is suppressed when forward power is below 0.1 W (`MIN_FWD_POWER_FOR_SWR_W`) to avoid false alarms from noise. If gamma >= 1.0 (total or over-reflection), SWR is clamped to 99.9.
+
+### Temperature (Steinhart-Hart beta equation)
+
+The thermistor circuit is: VCC (3.3 V) -> R_series -> NTC -> GND. The ADC measures the voltage across the NTC.
+
+```
+R_ntc = R_series * V_adc / (VCC - V_adc)
+T_K   = 1 / ( 1/298.15 + ln(R_ntc / R0) / beta )
+T_C   = T_K - 273.15
+```
+
+Returns NAN if the voltage is at the rail (open/short circuit NTC), which suppresses the fault check via the `!isnan()` guard.
 
 ## Event Flow
 
-The monitor runs as a free-running FreeRTOS task. Its pace is governed by ADC conversion time (~125 ms per channel at 8 SPS).
-
-### Initialization
-
-`monitor_init` creates the ADC event queue and mutex (`s_adc_mutex`), creates the I2C bus, initializes both ADS1115 chips, and registers a falling-edge GPIO ISR on chip 1's ALERT/RDY pin that posts to `s_adc_queue`. Chip 0 (0x48) has its ALERT pin configured as input with pullup but no ISR -- it is reserved for future use. No conversions are started at init.
-
-### Sequential Single-Shot Read Loop
-
-The task reads all four channels on chip 1 sequentially using the `read_channel()` helper. Each channel is read via a single-shot conversion: trigger, wait for ALERT, read result.
+### Normal Monitoring Cycle
 
 ```
- monitor_task loop:
- |
- |-- 1. xSemaphoreTake(s_adc_mutex)   -- acquire ADC bus lock
- |
- |-- 2. read_channel(AIN0)            -- trigger single-shot, wait ALERT, read
- |      fwd_v = voltage                  (~125 ms)
- |
- |-- 3. read_channel(AIN1)            -- trigger single-shot, wait ALERT, read
- |      ref_v = voltage                  (~125 ms)
- |
- |-- 4. Compute fwd_w, ref_w, SWR from fwd_v and ref_v
- |      Update system_state
- |      Check SWR fault threshold
- |
- |-- 5. read_channel(AIN2)            -- trigger single-shot, wait ALERT, read
- |      temp1 = voltage_to_temp_c()      (~125 ms)
- |      Update system_state
- |      Check temp1 fault threshold
- |
- |-- 6. read_channel(AIN3)            -- trigger single-shot, wait ALERT, read
- |      temp2 = voltage_to_temp_c()      (~125 ms)
- |      Update system_state
- |      Check temp2 fault threshold
- |
- |-- 7. xSemaphoreGive(s_adc_mutex)   -- release ADC bus lock
- |
- '-- 8. vTaskDelay(10 ms)             -- yield to let other tasks acquire mutex
- |
- '-- Loop back to step 1 (~510 ms full cycle)
+1. monitor_task acquires s_adc_mutex
+2. For each channel (AIN0..AIN3):
+   a. Drain stale ALERT events from s_adc_queue
+   b. Trigger single-shot conversion via I2C
+   c. Block on s_adc_queue (250 ms timeout) waiting for ALERT/RDY ISR
+   d. Read raw ADC value via I2C, convert to voltage
+3. Compute power, SWR, temperatures from voltages
+4. Publish to system_state after power readings, then after each temp
+5. Check each value against its fault threshold
+6. Release s_adc_mutex
+7. vTaskDelay(10 ms) -- yield window for external ADC callers
+8. Repeat
 ```
 
-### The `read_channel` Helper
+### Fault Detection
 
-This function encapsulates the single-shot trigger/wait/read sequence for chip 1:
+When a threshold is breached, the monitor constructs a `seq_event_t` with type `SEQ_EVENT_FAULT` and sends it to the sequencer's event queue via `xQueueSend`. The sequencer then transitions to `SEQ_STATE_FAULT`, de-energises the PA relay, and latches until a manual clear.
 
-1. **Drain** any stale ALERT events from the queue with non-blocking receives.
-2. **Trigger** a single-shot conversion via `ads1115_start_single_shot(s_chip[1], ch)`.
-3. **Wait** for the ALERT/RDY event on `s_adc_queue` (250 ms timeout).
-4. **Read** the conversion result via `ads1115_read_raw` and convert to volts with `fmaxf(..., 0.0f)`.
+Three fault types can be raised:
+- `SEQ_FAULT_HIGH_SWR` -- SWR exceeds `swr_fault_threshold` while forward power >= 0.1 W
+- `SEQ_FAULT_OVER_TEMP1` -- Temperature 1 exceeds `temp1_fault_threshold_c`
+- `SEQ_FAULT_OVER_TEMP2` -- Temperature 2 exceeds `temp2_fault_threshold_c`
 
-Returns `-1.0f` on timeout or I2C error, which the caller uses to skip that channel's processing.
+### External ADC Access
 
-### Public API for External ADC Access
-
-`monitor_read_channel(ads1115_channel_t ch, float *out_voltage)` allows any task to perform a one-off blocking read of a single ADC channel on chip 1. It acquires `s_adc_mutex` (1-second timeout), calls the same internal `read_channel()` helper used by `monitor_task`, then releases the mutex. This is used by the CLI `adc` commands to read channels on demand without conflicting with the monitoring loop.
-
-Return values:
-- `ESP_OK` -- voltage written to `*out_voltage`
-- `ESP_ERR_INVALID_STATE` -- called before `monitor_init()` (mutex does not exist)
-- `ESP_ERR_TIMEOUT` -- could not acquire the mutex within 1 second
-- `ESP_FAIL` -- ADC conversion failed (I2C error or ALERT timeout)
-
-`monitor_update_config(const app_config_t *cfg)` replaces the monitor's internal `s_cfg` snapshot with a new copy. This allows runtime changes to calibration factors, fault thresholds, and thermistor parameters without restarting the task. The copy is a plain `memcpy` with no synchronization beyond the function call itself -- the assumption is that the monitor task will pick up the new values on its next cycle.
-
-### Fault Delivery
-
-Faults are sent as `seq_event_t` messages to the sequencer's event queue via `xQueueSend` with zero timeout (non-blocking). If the queue is full, the send is silently dropped -- the rationale is that the sequencer already has a fault pending. The sequencer is responsible for latching the fault state; the monitor does not debounce or suppress repeated faults itself.
+`monitor_read_channel()` allows any task to perform an ad-hoc single-channel read (e.g. the CLI `adc` command). It acquires the same `s_adc_mutex` with a 1-second timeout, so it blocks until the monitor's current cycle yields the mutex during its 10 ms delay window.
 
 ## Architecture Decisions
 
-- **Single-shot mode with sequential reads.** Each channel is read via an explicit trigger/wait/read cycle. This eliminates the complexity of continuous-mode channel switching (stale semaphore drains, mid-conversion aborts) and is well suited to the 8 SPS data rate where the ~500 ms full cycle time is acceptable.
+- **ISR-driven conversion synchronisation.** Rather than polling the ADS1115 status register over I2C, the component configures the ALERT/RDY pin as a conversion-ready signal and uses a GPIO ISR to post to a FreeRTOS queue. This avoids busy-wait I2C traffic and provides a clean blocking wait with a timeout for detecting hardware faults.
 
-- **Queue instead of binary semaphores for ALERT.** A single queue (depth 8) replaces per-chip binary semaphores. The queue can be drained of stale events before triggering a new conversion, and the chip index carried in the queue item allows future expansion to chip 0.
+- **Single-shot mode over continuous mode.** The ADS1115 is operated in single-shot mode, reading each of the four channels sequentially. This gives explicit control over channel multiplexing order and timing, avoids stale-data ambiguity inherent in continuous mode with MUX changes, and allows the conversion timeout to serve as a hardware health check.
 
-- **Chip 0 reserved.** The ADS1115 at 0x48 is initialized and its ALERT GPIO configured, but no ISR is installed and no conversions are performed. This keeps the hardware ready for future use without adding dead code paths to the read loop.
+- **Mutex-based ADC sharing.** The monitor task holds the ADC mutex for the duration of its four-channel sweep, then explicitly yields for 10 ms. Without this yield, the monitor would immediately re-acquire the mutex and starve the CLI. The 10 ms window is a deliberate trade-off: short enough to maintain ~500 ms cycle time, long enough for a CLI command to slip in.
 
-- **Mutex-protected ADC access.** A FreeRTOS mutex (`s_adc_mutex`) serializes all access to the ADS1115 -- both the monitor task's periodic reads and ad-hoc reads from other tasks via `monitor_read_channel()`. The monitor holds the mutex for the entire four-channel sweep (~500 ms) rather than per-channel, which keeps the conversion sequence atomic and avoids interleaving reads from different callers mid-cycle.
+- **System state updated incrementally.** `system_state_set_sensors()` is called after power readings and then again after each temperature reading, rather than once at the end. This means consumers see partial updates mid-cycle, but it ensures power/SWR data is available as early as possible -- important for the sequencer's fault response latency.
 
-- **Explicit yield after each cycle.** The monitor task calls `vTaskDelay(pdMS_TO_TICKS(10))` after releasing the mutex at the end of each sweep. Without this delay, the high-priority monitor task would immediately re-acquire the mutex at the top of the loop, starving lower-priority tasks (e.g. the CLI REPL) that are waiting to call `monitor_read_channel()`. The 10 ms window is long enough for a waiting task to acquire the mutex and perform a single-channel read.
+- **Config update is a plain memcpy.** `monitor_update_config()` copies the entire `app_config_t` without locking. This is safe because the monitor task only reads `s_cfg` during its sweep while holding the ADC mutex, and the config update is atomic at the word level on the ESP32-S3 (Xtensa). If more fields are added or config becomes larger, this may need a dedicated lock.
 
-- **`-1.0f` error sentinel.** `read_channel` returns `-1.0f` on failure rather than NAN. The caller checks `>= 0.0f` (for power) or `> 0.0f` (for temperature) to skip failed readings, which is simpler than `isnan()` checks.
-
-- **Incremental system_state updates.** Sensor readings are published to `system_state` as soon as each group is computed (power pair, then each temperature), rather than batching all four at the end of the cycle. This gives consumers fresher partial data during the ~500 ms cycle.
-
-- **Calibration via V-squared model.** Forward and reflected power are computed as `cal_factor * V^2`. This matches the typical output characteristic of directional coupler detector diodes, where detected voltage is proportional to the square root of power.
-
-- **SWR gating below minimum power.** SWR is only checked when forward power exceeds 0.1 W (`MIN_FWD_POWER_FOR_SWR_W`). At low or zero power, the reflected voltage is dominated by noise, which would produce wildly inaccurate SWR values and false faults.
-
-- **SWR capped at 99.9.** When the reflection coefficient (gamma) approaches or exceeds 1.0 (open or short circuit), the SWR formula diverges. The cap prevents infinity or negative values from propagating.
-
-- **Configuration snapshot, replaceable at runtime.** The entire `app_config_t` is copied into a module-static variable during `monitor_init`. This avoids pointer-lifetime issues. The snapshot can be replaced at any time via `monitor_update_config()`, which performs a `memcpy` into the same static. There is no mutex around the config copy -- this is acceptable because the monitor task reads `s_cfg` fields individually (not atomically across fields), and a partially-updated config during a single cycle would at worst apply one threshold from the old config and another from the new, which is harmless for a monitoring use case.
+- **Chip 0 initialised but unused.** The second ADS1115 at address 0x48 is initialised at startup with its ALERT GPIO configured as input-with-pullup but no ISR. This reserves the hardware path for future expansion without requiring a firmware change to the init sequence.
 
 ## Dependencies
 
-| Dependency | Role |
-|---|---|
-| `ads1115` | Driver for ADS1115 16-bit ADC: init, single-shot trigger, read raw, convert to volts |
-| `config` | Provides `app_config_t` with calibration factors and fault thresholds |
-| `sequencer` | Provides `sequencer_get_event_queue()` for fault injection and defines `seq_event_t` / `seq_fault_t` |
-| `system_state` | Blackboard for publishing live sensor readings to system-wide consumers |
-| `hw_config` | Pin assignments and I2C bus parameters (`HW_I2C_*`, `HW_ADS1115_*`) |
-| `driver` (ESP-IDF) | `gpio` for ALERT interrupt setup, `i2c_master` for bus initialization |
-| `freertos` | Task infrastructure, queue, mutex/semaphore primitives |
+| Component      | Role                                                       |
+|----------------|------------------------------------------------------------|
+| `ads1115`      | I2C driver for ADS1115 16-bit ADC                          |
+| `config`       | `app_config_t` type definition, calibration/threshold data |
+| `sequencer`    | Fault event queue (`sequencer_get_event_queue()`)          |
+| `system_state` | Blackboard for publishing sensor readings                  |
+| `hw_config`    | GPIO pin assignments, I2C port/address constants           |
+| `driver`       | ESP-IDF GPIO and I2C master drivers                        |
+| `freertos`     | Task, queue, semaphore, delay primitives                   |
+
+## Public API
+
+```c
+// Initialise I2C bus, both ADS1115 chips, ALERT GPIO ISRs.
+// Must be called after sequencer_init().
+esp_err_t monitor_init(const app_config_t *cfg);
+
+// FreeRTOS task entry point. Stack: 4096, Priority: 7.
+void monitor_task(void *arg);
+
+// Hot-reload calibration and thresholds. Safe from any task.
+esp_err_t monitor_update_config(const app_config_t *cfg);
+
+// Ad-hoc single-channel read (blocking, mutex-protected, 1s timeout).
+esp_err_t monitor_read_channel(ads1115_channel_t ch, float *out_voltage);
+```
 
 ## Usage Notes
 
-- **Init order matters.** Call `monitor_init()` after `sequencer_init()` because the monitor needs the sequencer's event queue handle to exist before it can inject faults.
+- **Init ordering matters.** `monitor_init()` must be called after `sequencer_init()` because it uses `sequencer_get_event_queue()` at runtime (during fault injection). The queue handle is fetched on each fault, not cached at init, so the sequencer just needs to be initialised before the monitor task starts running.
 
-- **Task creation is the caller's responsibility.** The component exposes `monitor_task` as a FreeRTOS task function. The application main must call `xTaskCreate(monitor_task, "monitor", 4096, NULL, 7, NULL)` or equivalent.
+- **Cycle time is approximately 500 ms.** Four channels at 8 SPS (125 ms per conversion) plus I2C overhead and the 10 ms yield delay. This is not configurable at runtime.
 
-- **No built-in fault suppression.** The monitor will send a fault event on every cycle where a threshold is breached. The sequencer is expected to latch the fault and ignore duplicates. If you change the sequencer's fault handling, be aware that the monitor may flood the queue under sustained fault conditions.
+- **The 250 ms conversion timeout is a hard-coded safety net.** If the ALERT/RDY ISR never fires (e.g. I2C bus lockup, chip failure), the channel read returns -1.0f and that channel's readings are skipped for the cycle. No fault is injected for ADC hardware failure -- only for threshold breaches on successfully-read values.
 
-- **ADC timeout is 250 ms.** If the ADS1115 becomes unresponsive (e.g. I2C bus lockup), `read_channel` will log a warning and return `-1.0f` rather than blocking indefinitely. Four consecutive timeouts would stall the loop for ~1 second before it resumes.
+- **SWR is not checked below 0.1 W forward power.** This prevents false SWR faults from ADC noise when the transmitter is off or at very low power.
 
-- **`monitor_read_channel()` blocks for up to ~400 ms.** In the worst case, the caller waits up to 1 second for the mutex (while the monitor task finishes its sweep) plus ~125 ms for the conversion itself. Callers should not use this function from time-critical tasks or ISRs.
+- **Temperature NAN suppresses fault checks.** If the thermistor is open-circuit or shorted (voltage at rail), the conversion returns NAN, and the `!isnan()` guard prevents a spurious fault. The NAN value is still written to system_state, so consumers should handle it.
 
-- **`monitor_update_config()` takes effect on the next cycle.** There is no synchronization barrier -- the monitor task will read the new config values naturally when it next accesses `s_cfg`. If precise timing is needed (e.g. applying a new threshold before the next fault check), the caller must account for the ~500 ms cycle time.
-
-- **I2C bus ownership.** The monitor creates and owns the I2C master bus. No other component should initialize the same I2C port. Other I2C devices on the same physical bus would need to be added as devices on `s_bus`, which currently requires modifying this component.
+- **The monitor owns the I2C bus.** No other component should create an I2C master bus on `I2C_NUM_0`. Other components needing I2C access should go through `monitor_read_channel()` or a future bus-sharing API.

@@ -2,80 +2,115 @@
 
 ## Overview
 
-`system_state` implements a shared blackboard (observable state snapshot) for the ESP32-S3 RF PA sequencer. It aggregates live state from every subsystem -- relays, PTT, sequencer FSM, and sensor readings -- into a single `system_state_t` struct. Producers call fine-grained setter functions to update individual fields; consumers call `system_state_get()` to obtain a consistent, point-in-time copy of the entire struct. All access is serialised with a FreeRTOS spinlock (`portMUX_TYPE`), keeping critical sections down to a single field write or `memcpy`.
+`system_state` is the central blackboard for the sequencer firmware. It holds a single `system_state_t` struct that aggregates live readings from every subsystem -- relays, PTT, sequencer FSM, sensor measurements, and Wi-Fi status. Producer subsystems push updates through domain-specific setter functions; consumers obtain an atomic, point-in-time snapshot via `system_state_get()`. The component owns no task and performs no I/O -- it is purely a thread-safe shared-memory rendezvous point.
 
 ## Key Data Structures
 
 ### `system_state_t`
 
-| Field           | Type      | Description |
-|-----------------|-----------|-------------|
-| `relay_states`  | `uint8_t` | Bitmask of relay hardware state. Bit 0 = Relay 1, up to bit 5 = Relay 6. Matches the 1-indexed relay IDs used elsewhere (bit position = `relay_id - 1`). |
-| `ptt_active`    | `bool`    | `true` when the PTT input is asserted (active-low GPIO is driven low). |
-| `seq_state`     | `uint8_t` | Current sequencer FSM state. Stored as `uint8_t` to avoid a header dependency on `sequencer.h`; cast to `seq_state_t` when reading. Values: `SEQ_STATE_RX`, `SEQ_STATE_SEQUENCING_TX`, `SEQ_STATE_TX`, `SEQ_STATE_SEQUENCING_RX`, `SEQ_STATE_FAULT`. |
-| `seq_fault`     | `uint8_t` | Latched fault code. Cast to `seq_fault_t` when reading. `SEQ_FAULT_NONE` (0) when healthy. |
-| `fwd_power_w`   | `float`   | Forward RF power in watts. |
-| `ref_power_w`   | `float`   | Reflected RF power in watts. |
-| `swr`           | `float`   | Standing wave ratio. Initialised to `1.0f` (perfect match / no reading). |
-| `temp1_c`       | `float`   | Temperature sensor 1 reading in degrees Celsius. |
-| `temp2_c`       | `float`   | Temperature sensor 2 reading in degrees Celsius. |
+The snapshot struct that consumers receive. Every field is plain-old-data so the entire struct can be copied with `memcpy`.
+
+| Field | Type | Description |
+|---|---|---|
+| `relay_states` | `uint8_t` | Bitmask of relay on/off states. Bit 0 corresponds to relay 1, bit 5 to relay 6 (1-indexed IDs mapped to 0-indexed bits). |
+| `ptt_active` | `bool` | `true` when the PTT input line is asserted (active-low GPIO is low). |
+| `seq_state` | `uint8_t` | Current sequencer FSM state. Stored as `uint8_t` to avoid a header dependency on `sequencer.h`; cast to `seq_state_t` when reading (`SEQ_STATE_RX`, `SEQ_STATE_SEQUENCING_TX`, `SEQ_STATE_TX`, `SEQ_STATE_SEQUENCING_RX`, `SEQ_STATE_FAULT`). |
+| `seq_fault` | `uint8_t` | Active fault code. Cast to `seq_fault_t` (`SEQ_FAULT_NONE`, `SEQ_FAULT_HIGH_SWR`, `SEQ_FAULT_OVER_TEMP1`, `SEQ_FAULT_OVER_TEMP2`, `SEQ_FAULT_EMERGENCY`). |
+| `fwd_power_w` | `float` | Forward RF power in watts. |
+| `ref_power_w` | `float` | Reflected RF power in watts. |
+| `swr` | `float` | Standing wave ratio. Initialised to `1.0` (perfect match). |
+| `temp1_c` | `float` | Temperature sensor 1 reading in degrees Celsius. |
+| `temp2_c` | `float` | Temperature sensor 2 reading in degrees Celsius. |
+| `wifi_connected` | `bool` | Whether the station is associated to an AP. |
+| `wifi_ip_addr` | `uint32_t` | IPv4 address in network byte order. |
+| `wifi_rssi` | `int8_t` | Received signal strength in dBm. |
 
 ### Internal state
 
-A single file-scoped `s_state` instance is the authoritative copy. There is no dynamic allocation and no initialisation function -- the struct is zero-initialised at load time (with `swr` defaulting to `1.0f`).
+A single file-scoped instance (`s_state`) of `system_state_t` protected by a FreeRTOS spinlock (`portMUX_TYPE s_mux`). There is no dynamic allocation and no initialisation function -- the module is ready at program startup via static initialisation.
+
+## API
+
+### Writers (one per subsystem)
+
+Each setter enters a critical section, mutates only the fields it owns, and exits. Hold time is a handful of scalar assignments -- never more than a few microseconds.
+
+| Function | Called by | Fields written |
+|---|---|---|
+| `system_state_set_relay(relay_id, on)` | `relays` | `relay_states` (sets or clears a single bit) |
+| `system_state_set_relays_all_off()` | `relays` | `relay_states` (zeroed) |
+| `system_state_set_ptt(active)` | `ptt` (ISR context) | `ptt_active` |
+| `system_state_set_sequencer(state, fault)` | `sequencer` | `seq_state`, `seq_fault` |
+| `system_state_set_sensors(fwd_w, ref_w, swr, temp1_c, temp2_c)` | `monitor` | `fwd_power_w`, `ref_power_w`, `swr`, `temp1_c`, `temp2_c` |
+| `system_state_set_wifi(connected, ip_addr, rssi)` | `wifi_sta` | `wifi_connected`, `wifi_ip_addr`, `wifi_rssi` |
+
+`relay_id` is validated (must be 1..`HW_RELAY_COUNT`); out-of-range calls are silently dropped.
+
+### Reader
+
+```c
+void system_state_get(system_state_t *out);
+```
+
+Copies the entire `s_state` into the caller-provided buffer inside a critical section. The caller receives a consistent snapshot -- no field can be half-updated because the copy is atomic with respect to all writers.
 
 ## Event Flow
 
 ```
- Producers                          Blackboard                   Consumers
- ─────────                          ──────────                   ─────────
- relays.c ──── set_relay() ────┐
-               set_relays_     │
-               all_off() ──────┤
-                               │
- ptt.c ────── set_ptt() ──────┤    ┌──────────────┐
-                               ├──▶│  s_state      │──▶ system_state_get()
- sequencer.c─ set_sequencer()─┤    │  (spinlock)   │      ├─ display (planned)
-                               │    └──────────────┘      └─ console logger (planned)
- monitor.c ── set_sensors() ──┘
+Producers                          Blackboard                Consumers
+---------                          ----------                ---------
+ptt ISR ----set_ptt--------------->|                |
+sequencer task --set_sequencer---->|  s_state       |------> cli (status, monitor, relay, wifi)
+monitor task --set_sensors-------->|  (spinlock)    |------> web_server (GET /api/state)
+relays --------set_relay---------->|                |
+wifi_sta ------set_wifi----------->|                |
 ```
 
-1. **Relay driver** (`relays.c`) calls `system_state_set_relay(id, on)` or `system_state_set_relays_all_off()` immediately after toggling GPIO levels. The bitmask is updated atomically inside the spinlock.
-2. **PTT ISR** (`ptt.c`) calls `system_state_set_ptt()` in its GPIO interrupt handler, recording whether PTT is asserted before posting the event to the sequencer queue.
-3. **Sequencer task** (`sequencer.c`) calls `system_state_set_sequencer(state, fault)` on every FSM state transition -- including entry into fault state during `emergency_shutdown()`.
-4. **Monitor task** (`monitor.c`) calls `system_state_set_sensors()` each time it processes an ADC or temperature reading, pushing all five sensor values in a single critical section.
-5. **Consumers** (not yet implemented) will call `system_state_get(&snap)` to obtain a full copy. Because the read side is a single `memcpy` inside a critical section, consumers are guaranteed a self-consistent snapshot -- they will never see, for example, a half-updated sensor set.
+1. A producer event occurs (GPIO interrupt, sensor poll, FSM transition, Wi-Fi event).
+2. The owning subsystem calls the appropriate `system_state_set_*` function.
+3. The setter acquires the spinlock, writes the relevant fields, and releases the spinlock.
+4. When a consumer needs current state (CLI command, HTTP request, periodic display update), it calls `system_state_get()`, which copies the entire struct under the spinlock.
+5. The consumer works with its local copy; no lock is held while it formats output or builds JSON.
+
+There is no notification or callback mechanism -- consumers poll on demand.
 
 ## Architecture Decisions
 
-- **Spinlock over mutex.** The critical sections contain only a single field assignment or a `memcpy` of ~28 bytes. A FreeRTOS spinlock (`portENTER_CRITICAL` / `portEXIT_CRITICAL`) is the lightest-weight synchronisation primitive on ESP32 and is safe to call from ISR context, which is necessary because PTT publishes from a GPIO ISR.
+- **Spinlock, not mutex.** A FreeRTOS `portMUX_TYPE` spinlock is used instead of a mutex because `system_state_set_ptt()` is called directly from an ISR (`ptt_isr_handler` is marked `IRAM_ATTR`). Mutexes cannot be taken from ISR context on ESP-IDF; spinlocks can. The critical sections are short enough (scalar assignments or a single `memcpy`) that spinlock contention is negligible.
 
-- **Opaque sequencer types (`uint8_t` instead of enums).** `seq_state` and `seq_fault` are stored as raw `uint8_t` to break a compile-time dependency on `sequencer.h`. This keeps the dependency graph shallow: any component can include `system_state.h` without pulling in the sequencer's types. Consumers that need symbolic names cast on read.
+- **Copy-on-read (snapshot pattern).** `system_state_get()` copies the full struct rather than returning a pointer. This lets consumers hold and inspect state without keeping the lock, and eliminates any risk of reading a partially updated struct.
 
-- **No init function.** The module uses file-scope static initialisation, so it is ready to use from the moment the application starts. This avoids boot-order issues -- producers can begin writing before any consumer has registered.
+- **Sequencer types stored as `uint8_t`.** The `seq_state` and `seq_fault` fields are raw integers rather than their enum types (`seq_state_t`, `seq_fault_t`). This breaks what would otherwise be a circular header dependency: `system_state.h` is included by nearly every component, but `sequencer.h` defines the enums and also depends on types from other components. Consumers that need symbolic names include `sequencer.h` separately and cast.
 
-- **Copy-on-read, not pointer sharing.** `system_state_get()` copies the entire struct rather than returning a pointer. This eliminates data races outside the critical section and allows consumers to work on a stable snapshot for as long as they need without holding a lock.
+- **No initialisation function.** The module uses C static initialisation (`s_state` zeroed except `swr = 1.0f`, spinlock unlocked). This means the blackboard is available before `app_main` runs, which matters because the PTT ISR can fire as soon as GPIOs are configured.
 
-- **Per-domain setters rather than a single bulk write.** Each subsystem updates only its own fields. This means producers do not need to know about fields owned by other subsystems and cannot accidentally overwrite them.
+- **Single writer per field group.** Each setter writes a disjoint set of fields. There is no merge logic or conflict resolution because ownership is partitioned by subsystem at design time.
 
-- **Relay ID bounds check.** `system_state_set_relay()` silently rejects relay IDs outside `[1, HW_RELAY_COUNT]`, matching the same 1-indexed validation pattern used in `relays.c`.
+- **Silent validation on relay ID.** `system_state_set_relay` range-checks `relay_id` against `HW_RELAY_COUNT` (currently 6) and silently returns on invalid input, matching the defensive style used throughout the relay subsystem.
 
 ## Dependencies
 
-| Dependency   | Purpose |
-|--------------|---------|
-| `hw_config`  | Provides `HW_RELAY_COUNT` for relay bitmask bounds checking. |
-| FreeRTOS     | `portMUX_TYPE` spinlock primitives (`portENTER_CRITICAL` / `portEXIT_CRITICAL`). |
-| `<string.h>` | `memcpy` for the snapshot copy in `system_state_get()`. |
+| Dependency | Role |
+|---|---|
+| `hw_config` | Provides `HW_RELAY_COUNT` for relay bitmask validation |
+| FreeRTOS (`portMUX_TYPE`, `portENTER_CRITICAL`, `portEXIT_CRITICAL`) | Spinlock primitives |
+| `string.h` (`memcpy`) | Snapshot copy in `system_state_get` |
 
-No dependency on `sequencer.h`, `relays.h`, `monitor.h`, or `ptt.h` -- this is intentional to keep the component at the bottom of the dependency graph so it can be included freely by any subsystem.
+The component has no dependency on any other application component. This is intentional -- it sits at the bottom of the dependency graph so that any subsystem can include it without pulling in unrelated headers.
 
 ## Usage Notes
 
-- **ISR safety.** All setter functions use `portENTER_CRITICAL` (not `portENTER_CRITICAL_ISR`). On ESP-IDF for ESP32-S3, `portENTER_CRITICAL` and `portENTER_CRITICAL_ISR` compile to the same spinlock operation, so this is safe from ISR context. If porting to a platform where they differ, the PTT path would need the ISR variant.
+- **Consumers must include `sequencer.h` to interpret FSM fields.** The `seq_state` and `seq_fault` values are opaque `uint8_t` from the blackboard's perspective. Cast them:
+  ```c
+  system_state_t ss;
+  system_state_get(&ss);
+  if ((seq_state_t)ss.seq_state == SEQ_STATE_FAULT) { ... }
+  ```
 
-- **Snapshot freshness.** A snapshot is only as fresh as the moment `system_state_get()` returns. If a consumer needs real-time values (e.g., a fast protection loop), it should re-read frequently rather than caching a snapshot.
+- **Relay IDs are 1-indexed.** Bit 0 of `relay_states` is relay 1, matching the schematic convention used throughout the firmware. To test relay N: `(ss.relay_states >> (N - 1)) & 1`.
 
-- **Extending the struct.** To add new fields: add them to `system_state_t`, write a new domain-specific setter, and update the relevant producer. No changes to existing setters or the reader are needed -- `memcpy` picks up the new fields automatically.
+- **The snapshot is a point-in-time copy.** If you need multiple related fields to be consistent with each other (e.g., forward power and SWR), a single `system_state_get` call guarantees they were written in the same `set_sensors` invocation. Calling `system_state_get` twice may yield snapshots from different sensor cycles.
 
-- **SWR initialisation.** `swr` defaults to `1.0f` (not `0.0f`) so that a display rendering before the first sensor reading shows a physically meaningful value rather than zero.
+- **No change notification.** The blackboard is passive. Components that need to react to state changes (e.g., the sequencer reacting to PTT) use their own event queues. The blackboard is for observation, not coordination.
+
+- **ISR safety.** All setter functions are safe to call from ISR context because they use `portENTER_CRITICAL` / `portEXIT_CRITICAL` (which map to the appropriate ISR-safe variants when called from interrupt context on Xtensa). The `set_ptt` path exercises this in production.

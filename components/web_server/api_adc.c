@@ -1,15 +1,15 @@
 #include <stdlib.h>
 
-#include "cJSON.h"
 #include "esp_http_server.h"
 
+#include "cJSON.h"
 #include "ads1115.h"
 #include "monitor.h"
 
 #include "web_json.h"
 
 static const char *s_channel_names[] = {
-    "fwd_power", "ref_power", "temp_right", "temp_left"
+    "fwd_power", "ref_power", "temp1", "temp2"
 };
 
 /* ---- GET /api/adc or /api/adc?ch=N -------------------------------------- */
@@ -70,8 +70,8 @@ static esp_err_t api_adc_handler(httpd_req_t *req)
 void web_register_api_adc(httpd_handle_t server)
 {
     const httpd_uri_t adc_uri = {
-        .uri     = "/api/adc",
-        .method  = HTTP_GET,
+        .uri ="/api/adc",
+        .method =HTTP_GET,
         .handler = api_adc_handler,
     };
     httpd_register_uri_handler(server, &adc_uri);

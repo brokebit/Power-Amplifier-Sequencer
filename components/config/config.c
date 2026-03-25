@@ -4,8 +4,9 @@
 #include <string.h>
 
 #include "esp_log.h"
-#include "nvs_flash.h"
+
 #include "nvs.h"
+#include "nvs_flash.h"
 
 #include "config.h"
 
@@ -28,18 +29,18 @@ void config_defaults(app_config_t *cfg)
     cfg->rx_num_steps = 3;
 
     /* Fault thresholds */
-    cfg->swr_fault_threshold     = 3.0f;
+    cfg->swr_fault_threshold = 3.0f;
     cfg->temp1_fault_threshold_c = 65.0f;
     cfg->temp2_fault_threshold_c = 65.0f;
-    cfg->pa_relay_id             = 2;
+    cfg->pa_relay_id = 2;
 
     /* Power meter calibration */
     cfg->fwd_power_cal_factor = 1.0f;
     cfg->ref_power_cal_factor = 1.0f;
 
     /* Thermistor — NTC 100kΩ β=3950, 100kΩ series */
-    cfg->thermistor_beta          = 3950.0f;
-    cfg->thermistor_r0_ohms       = 100000.0f;
+    cfg->thermistor_beta = 3950.0f;
+    cfg->thermistor_r0_ohms = 100000.0f;
     cfg->thermistor_r_series_ohms = 100000.0f;
 }
 
@@ -109,16 +110,16 @@ const char *config_relay_label(const app_config_t *cfg, uint8_t relay_id,
 
 typedef struct {
     const char *key;
-    size_t      offset;
-    float       min;
-    float       max;
+    size_t offset;
+    float min;
+    float max;
 } config_float_key_t;
 
 typedef struct {
     const char *key;
-    size_t      offset;
-    int         min;
-    int         max;
+    size_t offset;
+    int min;
+    int max;
 } config_int_key_t;
 
 #define CFG_KEY(name, field, lo, hi) \

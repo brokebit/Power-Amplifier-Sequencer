@@ -1,6 +1,9 @@
 #include <stdlib.h>
 
+#include "esp_err.h"
 #include "esp_log.h"
+
+#include "driver/i2c_master.h"
 
 #include "ads1115.h"
 
@@ -13,10 +16,10 @@ static const char *TAG = "ads1115";
 #define REG_HI_THRESH   0x03
 
 /* Config register field masks / values */
-#define CFG_OS_START    (1u << 15)  /* Write: start single-shot conversion */
-#define CFG_MODE_SINGLE (1u <<  8)  /* Single-shot / power-down mode       */
-#define CFG_DR_8SPS     (0u <<  5)  /* 8 samples/sec = 125 ms/sample      */
-#define CFG_COMP_QUE_1  (0u <<  0)  /* Assert ALERT after 1 conversion     */
+#define CFG_OS_START (1u << 15) /* Write: start single-shot conversion */
+#define CFG_MODE_SINGLE (1u << 8) /* Single-shot / power-down mode */
+#define CFG_DR_8SPS (0u << 5) /* 8 samples/sec = 125 ms/sample */
+#define CFG_COMP_QUE_1 (0u << 0) /* Assert ALERT after 1 conversion */
 
 /* MUX: single-ended AINx vs GND starts at 0x4 */
 #define CFG_MUX_AIN(ch) ((uint16_t)(0x4u + (ch)) << 12)
@@ -27,7 +30,7 @@ static const float s_fsr[] = {6.144f, 4.096f, 2.048f, 1.024f, 0.512f, 0.256f};
 
 struct ads1115_dev {
     i2c_master_dev_handle_t i2c_dev;
-    ads1115_pga_t           pga;
+    ads1115_pga_t pga;
 };
 
 /* ---- helpers ------------------------------------------------------------ */
@@ -76,9 +79,13 @@ esp_err_t ads1115_init(i2c_master_bus_handle_t bus, uint8_t addr,
     /* Configure ALERT/RDY as conversion-ready:
      * Hi_thresh MSB = 1, Lo_thresh MSB = 0 (per ADS1115 datasheet §9.3.8) */
     ret = write_reg(dev, REG_HI_THRESH, 0x8000);
-    if (ret != ESP_OK) goto fail;
+    if (ret != ESP_OK) {
+        goto fail;
+    }
     ret = write_reg(dev, REG_LO_THRESH, 0x0000);
-    if (ret != ESP_OK) goto fail;
+    if (ret != ESP_OK) {
+        goto fail;
+    }
 
     ESP_LOGI(TAG, "initialised at 0x%02x", addr);
     *out_handle = dev;
