@@ -15,21 +15,23 @@
    set(PROJECT_VER "1.2.0")
    ```
 
-2. **Build the firmware:**
+2. **Build the firmware and SPIFFS filesystem image:**
 
    ```bash
    pio run
+   pio run -t buildfs
    ```
 
-3. **Generate the combined binary** (includes bootloader, partition table, and firmware in one file for first-time USB flashing):
+3. **Generate the combined binary** (includes bootloader, partition table, firmware, and SPIFFS web UI in one file for first-time USB flashing):
 
    ```bash
    esptool.py --chip esp32s3 merge_bin -o .pio/build/esp32-s3-devkitm-1/combined.bin \
      --flash_mode dio --flash_freq 80m --flash_size 8MB \
-     0x0     .pio/build/esp32-s3-devkitm-1/bootloader.bin \
-     0x8000  .pio/build/esp32-s3-devkitm-1/partitions.bin \
-     0xf000  .pio/build/esp32-s3-devkitm-1/ota_data_initial.bin \
-     0x20000 .pio/build/esp32-s3-devkitm-1/firmware.bin
+     0x0      .pio/build/esp32-s3-devkitm-1/bootloader.bin \
+     0x8000   .pio/build/esp32-s3-devkitm-1/partitions.bin \
+     0xf000   .pio/build/esp32-s3-devkitm-1/ota_data_initial.bin \
+     0x20000  .pio/build/esp32-s3-devkitm-1/firmware.bin \
+     0x620000 .pio/build/esp32-s3-devkitm-1/spiffs.bin
    ```
 
    If `esptool.py` is not on your PATH, use the copy bundled with PlatformIO at `~/.platformio/packages/tool-esptoolpy/esptool.py`.
@@ -62,7 +64,7 @@ Each release should contain two files:
 | File | Purpose |
 |------|---------|
 | `firmware.bin` | OTA updates — devices already running this firmware download this file |
-| `combined.bin` | First-time USB flash — includes bootloader, partition table, OTA data, and firmware in a single file |
+| `combined.bin` | First-time USB flash — includes bootloader, partition table, OTA data, firmware, and SPIFFS web UI in a single file |
 
 ## Flashing Pre-Built Firmware (USB)
 

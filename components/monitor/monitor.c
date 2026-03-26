@@ -219,7 +219,7 @@ void monitor_task(void *arg)
     /*
      * Cycle all four channels in single-shot mode:
      *   AIN0 = forward power   AIN1 = reflected power
-     *   AIN2 = temp right PA   AIN3 = temp left PA
+     *   AIN2 = temp1 PA   AIN3 = temp2 PA
      */
     float last_fwd_w = 0.0f, last_ref_w = 0.0f, last_swr = 1.0f;
     float last_temp1 = 0.0f, last_temp2 = 0.0f;

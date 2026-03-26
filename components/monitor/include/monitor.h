@@ -10,7 +10,7 @@
  *
  * Drives ADS1115 (0x49) in single-shot mode (8 SPS).
  *   AIN0 = forward power,   AIN1 = reflected power
- *   AIN2 = temp right PA,   AIN3 = temp left PA
+ *   AIN2 = temp1 PA,   AIN3 = temp2 PA
  *
  * Thermistor: Steinhart-Hart beta equation, voltage divider
  *   VCC → R_series → NTC → GND, ADS1115 measures across NTC.

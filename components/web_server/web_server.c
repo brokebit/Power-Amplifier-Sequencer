@@ -80,6 +80,7 @@ esp_err_t web_server_init(app_config_t *cfg)
     config.max_open_sockets = 7;   /* 3 WS + 4 HTTP to avoid LRU closing WS */
     config.task_priority = 5;
     config.lru_purge_enable = false; /* Disable: LRU can close WS sockets mid-push */
+    config.uri_match_fn = httpd_uri_match_wildcard;
     config.close_fn = ws_close_fd; /* Clean up WS client list on socket close */
 
     esp_err_t err = httpd_start(&s_server, &config);

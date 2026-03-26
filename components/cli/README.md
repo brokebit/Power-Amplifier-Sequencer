@@ -136,7 +136,7 @@ The sequence editor. Steps are specified in a compact token format, e.g., `R3:on
 adc scan
 adc read <0-3>
 ```
-Raw voltage reads from the ADS1115 ADC (chip at address 0x49). `scan` reads all four channels with descriptive labels (fwd power, ref power, temp right, temp left). Calls `monitor_read_channel()` which performs a synchronous I2C transaction.
+Raw voltage reads from the ADS1115 ADC (chip at address 0x49). `scan` reads all four channels with descriptive labels (fwd power, ref power, temp1, temp2). Calls `monitor_read_channel()` which performs a synchronous I2C transaction.
 
 ### monitor
 ```

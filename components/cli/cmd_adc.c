@@ -11,8 +11,8 @@
 static const char *s_ch_names[] = {
     [ADS1115_CHANNEL_0] = "AIN0 (fwd power)",
     [ADS1115_CHANNEL_1] = "AIN1 (ref power)",
-    [ADS1115_CHANNEL_2] = "AIN2 (temp right)",
-    [ADS1115_CHANNEL_3] = "AIN3 (temp left)"
+    [ADS1115_CHANNEL_2] = "AIN2 (temp1)",
+    [ADS1115_CHANNEL_3] = "AIN3 (temp2)"
 };
 
 static void read_and_print(ads1115_channel_t ch)

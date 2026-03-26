@@ -17,7 +17,7 @@ class TestGetAdcAll:
 
     def test_each_channel_has_fields(self, api):
         data = api.get_ok("/api/adc")
-        expected_names = ["fwd_power", "ref_power", "temp_right", "temp_left"]
+        expected_names = ["fwd_power", "ref_power", "temp1", "temp2"]
         for i, ch in enumerate(data["channels"]):
             assert ch["ch"] == i
             assert ch["name"] == expected_names[i]
@@ -31,8 +31,8 @@ class TestGetAdcSingle:
     @pytest.mark.parametrize("ch,name", [
         (0, "fwd_power"),
         (1, "ref_power"),
-        (2, "temp_right"),
-        (3, "temp_left"),
+        (2, "temp1"),
+        (3, "temp2"),
     ])
     def test_read_each_channel(self, api, ch, name):
         data = api.get_ok(f"/api/adc?ch={ch}")
