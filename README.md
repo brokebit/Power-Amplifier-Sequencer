@@ -231,8 +231,9 @@ Sequencer/
 Each component under `components/` has its own `CMakeLists.txt`, `include/` directory with public headers, and a `README.md` with detailed documentation of its data structures, event flow, and architecture decisions.
 
 ### TODO
-- Figure out the RF Head voltage to db math and proper calibration.
-- Implement the Nextion display driver and UI.
-- Implement a reset button to recover from EMERGENCY fault state without needing to power cycle.
-- Build out the web dashboard UI (the current index.html is a minimal placeholder).
-- Add authentication to the REST API write endpoints.
+- Implement SPIFFS updates via OTA mechanism for static web assets
+- Figure out the RF Head voltage to db math and proper calibration
+- Implement the Nextion display driver and UI
+- Implement a reset button to recover from EMERGENCY fault state without needing to power cycle
+- Build out the web dashboard UI (the current index.html is a minimal placeholder)
+- Add authentication to the REST API write endpoints
