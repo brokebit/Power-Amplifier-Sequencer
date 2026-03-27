@@ -1,5 +1,3 @@
-#include <string.h>
-
 #include "esp_http_server.h"
 
 #include "cJSON.h"
@@ -39,17 +37,8 @@ static esp_err_t api_fault_inject_handler(httpd_req_t *req)
         return web_json_error(req, 400, "missing 'type' string field");
     }
 
-    const char *type_str = type_json->valuestring;
     seq_fault_t fault;
-    if (strcmp(type_str, "swr") == 0) {
-        fault = SEQ_FAULT_HIGH_SWR;
-    } else if (strcmp(type_str, "temp1") == 0) {
-        fault = SEQ_FAULT_OVER_TEMP1;
-    } else if (strcmp(type_str, "temp2") == 0) {
-        fault = SEQ_FAULT_OVER_TEMP2;
-    } else if (strcmp(type_str, "emergency") == 0) {
-        fault = SEQ_FAULT_EMERGENCY;
-    } else {
+    if (!seq_fault_parse(type_json->valuestring, &fault)) {
         cJSON_Delete(body);
         return web_json_error(req, 400,
             "type must be: swr, temp1, temp2, or emergency");

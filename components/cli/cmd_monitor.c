@@ -12,22 +12,6 @@
 #include "sequencer.h"
 #include "system_state.h"
 
-static const char *s_state_names[] = {
-    [SEQ_STATE_RX] = "RX",
-    [SEQ_STATE_SEQUENCING_TX] = "SEQ_TX",
-    [SEQ_STATE_TX] = "TX",
-    [SEQ_STATE_SEQUENCING_RX] = "SEQ_RX",
-    [SEQ_STATE_FAULT] = "FAULT"
-};
-
-static const char *s_fault_names[] = {
-    [SEQ_FAULT_NONE] = "none",
-    [SEQ_FAULT_HIGH_SWR] = "HIGH_SWR",
-    [SEQ_FAULT_OVER_TEMP1] = "OVER_TEMP1",
-    [SEQ_FAULT_OVER_TEMP2] = "OVER_TEMP2",
-    [SEQ_FAULT_EMERGENCY] = "EMERGENCY"
-};
-
 #define DEFAULT_INTERVAL_MS  1000
 
 static int cmd_monitor_handler(int argc, char **argv)
@@ -61,8 +45,8 @@ static int cmd_monitor_handler(int argc, char **argv)
         if (csv) {
             printf("%d,%s,%s",
                    ss.ptt_active ? 1 : 0,
-                   s_state_names[ss.seq_state],
-                   s_fault_names[ss.seq_fault]);
+                   seq_state_name(ss.seq_state),
+                   seq_fault_name(ss.seq_fault));
             for (int i = 0; i < HW_RELAY_COUNT; i++) {
                 printf(",%d", (ss.relay_states >> i) & 1);
             }
@@ -82,8 +66,8 @@ static int cmd_monitor_handler(int argc, char **argv)
             printf("PTT:%-3s St:%-6s Flt:%-10s Rl:[%s] "
                    "F:%.1fW R:%.1fW SWR:%.1f T1:%.1fC T2:%.1fC\n",
                    ss.ptt_active ? "ON" : "off",
-                   s_state_names[ss.seq_state],
-                   s_fault_names[ss.seq_fault],
+                   seq_state_name(ss.seq_state),
+                   seq_fault_name(ss.seq_fault),
                    relays,
                    ss.fwd_power_w, ss.ref_power_w, ss.swr,
                    ss.temp1_c, ss.temp2_c);

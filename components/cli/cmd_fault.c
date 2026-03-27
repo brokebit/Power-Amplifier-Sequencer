@@ -9,22 +9,6 @@
 
 #include "sequencer.h"
 
-static const char *s_state_names[] = {
-    [SEQ_STATE_RX] = "RX",
-    [SEQ_STATE_SEQUENCING_TX] = "SEQ_TX",
-    [SEQ_STATE_TX] = "TX",
-    [SEQ_STATE_SEQUENCING_RX] = "SEQ_RX",
-    [SEQ_STATE_FAULT] = "FAULT"
-};
-
-static const char *s_fault_names[] = {
-    [SEQ_FAULT_NONE] = "none",
-    [SEQ_FAULT_HIGH_SWR] = "HIGH_SWR",
-    [SEQ_FAULT_OVER_TEMP1] = "OVER_TEMP1",
-    [SEQ_FAULT_OVER_TEMP2] = "OVER_TEMP2",
-    [SEQ_FAULT_EMERGENCY] = "EMERGENCY"
-};
-
 static int cmd_fault_handler(int argc, char **argv)
 {
     if (argc < 2) {
@@ -36,7 +20,7 @@ static int cmd_fault_handler(int argc, char **argv)
         seq_state_t state = sequencer_get_state();
         seq_fault_t fault = sequencer_get_fault();
         printf("State: %s   Fault: %s\n",
-               s_state_names[state], s_fault_names[fault]);
+               seq_state_name(state), seq_fault_name(fault));
         return 0;
     }
 
@@ -57,15 +41,7 @@ static int cmd_fault_handler(int argc, char **argv)
         }
 
         seq_fault_t fault;
-        if (strcmp(argv[2], "swr") == 0) {
-            fault = SEQ_FAULT_HIGH_SWR;
-        } else if (strcmp(argv[2], "temp1") == 0) {
-            fault = SEQ_FAULT_OVER_TEMP1;
-        } else if (strcmp(argv[2], "temp2") == 0) {
-            fault = SEQ_FAULT_OVER_TEMP2;
-        } else if (strcmp(argv[2], "emergency") == 0) {
-            fault = SEQ_FAULT_EMERGENCY;
-        } else {
+        if (!seq_fault_parse(argv[2], &fault)) {
             printf("Unknown fault: %s\n", argv[2]);
             printf("Valid: swr, temp1, temp2, emergency\n");
             return 1;
@@ -78,7 +54,7 @@ static int cmd_fault_handler(int argc, char **argv)
             .data = (uint32_t)fault,
         };
         xQueueSend(sequencer_get_event_queue(), &ev, 0);
-        printf("Injected fault: %s\n", s_fault_names[fault]);
+        printf("Injected fault: %s\n", seq_fault_name(fault));
         return 0;
     }
 

@@ -36,6 +36,12 @@ Relay ID range checks used hardcoded `6` instead of `HW_RELAY_COUNT`, and sequen
 
 Added `SEQ_MAX_DELAY_MS` constant to `config.h`. Replaced all hardcoded relay ID and delay limit checks with `HW_RELAY_COUNT` and `SEQ_MAX_DELAY_MS` in the CLI, web API, and config key-value setter. Error messages now format dynamically from the constants.
 
+**Shared enum↔string helpers for sequencer state and fault names**
+
+State-name tables (`"RX"`, `"SEQ_TX"`, …), fault-name tables (`"none"`, `"HIGH_SWR"`, …), and fault-keyword parsing (`"swr"` → `SEQ_FAULT_HIGH_SWR`) were duplicated across four CLI files and two web API files. Adding a new state or fault type required updating every copy — easy to miss.
+
+Moved the tables into the `sequencer` component as `seq_state_name()`, `seq_fault_name()`, and `seq_fault_parse()`. All CLI commands and web handlers now call the shared helpers. Removes ~60 lines of duplicated code and ensures a single source of truth for display strings and input parsing.
+
 ### Tests
 
 **New regression tests**
@@ -57,16 +63,21 @@ Replaced hardcoded `6` (relay count) and `"1-6"` string assertions across all te
 
 | File | Change |
 |------|--------|
-| `components/sequencer/sequencer.c` | PTT reconcile loop, RX sequence on fault clear, `sequencer_config_matches()` |
-| `components/sequencer/include/sequencer.h` | Added `sequencer_config_matches()` declaration |
+| `components/sequencer/sequencer.c` | PTT reconcile loop, RX sequence on fault clear, `sequencer_config_matches()`, shared `seq_state_name()`/`seq_fault_name()`/`seq_fault_parse()` |
+| `components/sequencer/include/sequencer.h` | Added `sequencer_config_matches()`, `seq_state_name()`, `seq_fault_name()`, `seq_fault_parse()` declarations |
 | `components/sequencer/CMakeLists.txt` | Added `driver` and `hw_config` to REQUIRES for GPIO read |
 | `components/config/config.c` | Config mutex, internal locking, `pa_relay` range uses `HW_RELAY_COUNT` |
 | `components/config/include/config.h` | Added `config_lock()`/`config_unlock()`, `SEQ_MAX_DELAY_MS` |
 | `components/config/CMakeLists.txt` | Added `freertos` to REQUIRES |
 | `components/monitor/monitor.c` | Lock around `memcpy` in `monitor_update_config()` |
+| `components/cli/cmd_status.c` | Replaced local name tables with `seq_state_name()`/`seq_fault_name()` |
+| `components/cli/cmd_fault.c` | Replaced local name tables and fault parsing with shared helpers |
+| `components/cli/cmd_monitor.c` | Replaced local name tables with `seq_state_name()`/`seq_fault_name()` |
 | `components/cli/cmd_seq.c` | Config lock on step writes, relay/delay validation uses constants |
 | `components/cli/cmd_relay.c` | Config lock on relay name writes |
 | `components/web_server/api_config.c` | Snapshot copy under lock for GET, added `pending_apply` |
+| `components/web_server/api_state.c` | Replaced local name tables with `seq_state_name()`/`seq_fault_name()` |
+| `components/web_server/api_fault.c` | Replaced fault parsing with `seq_fault_parse()` |
 | `components/web_server/api_seq.c` | Config lock on step writes, relay/delay validation uses constants |
 | `components/web_server/api_relay.c` | Config lock on name writes, relay ID error messages use `HW_RELAY_COUNT` |
 | `tests/test_config.py` | `RELAY_COUNT` constant, `pending_apply` field and lifecycle tests |

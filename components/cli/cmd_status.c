@@ -9,22 +9,6 @@
 
 #include "cli.h"
 
-static const char *s_state_names[] = {
-    [SEQ_STATE_RX] = "RX",
-    [SEQ_STATE_SEQUENCING_TX] = "SEQ_TX",
-    [SEQ_STATE_TX] = "TX",
-    [SEQ_STATE_SEQUENCING_RX] = "SEQ_RX",
-    [SEQ_STATE_FAULT] = "FAULT"
-};
-
-static const char *s_fault_names[] = {
-    [SEQ_FAULT_NONE] = "none",
-    [SEQ_FAULT_HIGH_SWR] = "HIGH_SWR",
-    [SEQ_FAULT_OVER_TEMP1] = "OVER_TEMP1",
-    [SEQ_FAULT_OVER_TEMP2] = "OVER_TEMP2",
-    [SEQ_FAULT_EMERGENCY] = "EMERGENCY"
-};
-
 static int cmd_status_handler(int argc, char **argv)
 {
     system_state_t ss;
@@ -32,8 +16,8 @@ static int cmd_status_handler(int argc, char **argv)
 
     printf("PTT: %s   State: %-6s  Fault: %s\n",
            ss.ptt_active ? "ON" : "off",
-           s_state_names[ss.seq_state],
-           s_fault_names[ss.seq_fault]);
+           seq_state_name(ss.seq_state),
+           seq_fault_name(ss.seq_fault));
 
     printf("Relays:");
     const app_config_t *cfg = cli_get_config();

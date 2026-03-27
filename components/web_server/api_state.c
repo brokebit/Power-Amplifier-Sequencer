@@ -12,24 +12,6 @@
 #include "web_json.h"
 #include "web_server.h"
 
-/* ---- state name tables -------------------------------------------------- */
-
-static const char *s_state_names[] = {
-    [SEQ_STATE_RX] = "RX",
-    [SEQ_STATE_SEQUENCING_TX] = "SEQ_TX",
-    [SEQ_STATE_TX] = "TX",
-    [SEQ_STATE_SEQUENCING_RX] = "SEQ_RX",
-    [SEQ_STATE_FAULT] = "FAULT",
-};
-
-static const char *s_fault_names[] = {
-    [SEQ_FAULT_NONE] = "none",
-    [SEQ_FAULT_HIGH_SWR] = "HIGH_SWR",
-    [SEQ_FAULT_OVER_TEMP1] = "OVER_TEMP1",
-    [SEQ_FAULT_OVER_TEMP2] = "OVER_TEMP2",
-    [SEQ_FAULT_EMERGENCY] = "EMERGENCY",
-};
-
 /* ---- helpers ------------------------------------------------------------ */
 
 cJSON *web_build_state_json(void)
@@ -43,8 +25,8 @@ cJSON *web_build_state_json(void)
     }
 
     cJSON_AddBoolToObject(data, "ptt", ss.ptt_active);
-    cJSON_AddStringToObject(data, "seq_state", s_state_names[ss.seq_state]);
-    cJSON_AddStringToObject(data, "seq_fault", s_fault_names[ss.seq_fault]);
+    cJSON_AddStringToObject(data, "seq_state", seq_state_name(ss.seq_state));
+    cJSON_AddStringToObject(data, "seq_fault", seq_fault_name(ss.seq_fault));
 
     cJSON *relays = cJSON_CreateArray();
     for (int i = 0; i < HW_RELAY_COUNT; i++) {

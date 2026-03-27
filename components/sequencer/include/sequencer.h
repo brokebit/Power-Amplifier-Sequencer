@@ -113,6 +113,23 @@ esp_err_t sequencer_update_config(const app_config_t *cfg);
  */
 bool sequencer_config_matches(const app_config_t *cfg);
 
+/* ---------------------------------------------------------
+ * Enum ↔ string helpers — single source of truth for names
+ * used by CLI, web API, and logging.
+ * --------------------------------------------------------- */
+
+/** Return display name for a sequencer state ("RX", "SEQ_TX", …). */
+const char *seq_state_name(seq_state_t state);
+
+/** Return display name for a fault code ("none", "HIGH_SWR", …). */
+const char *seq_fault_name(seq_fault_t fault);
+
+/**
+ * Parse a fault injection keyword ("swr", "temp1", "temp2", "emergency")
+ * into the corresponding seq_fault_t.  Returns true on match.
+ */
+bool seq_fault_parse(const char *str, seq_fault_t *out);
+
 #ifdef __cplusplus
 }
 #endif

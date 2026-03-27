@@ -18,6 +18,67 @@ static const char *TAG = "sequencer";
 #define EVENT_QUEUE_LEN  16
 
 /* ---------------------------------------------------------
+ * Enum ↔ string tables
+ * --------------------------------------------------------- */
+
+static const char *s_state_names[] = {
+    [SEQ_STATE_RX]            = "RX",
+    [SEQ_STATE_SEQUENCING_TX] = "SEQ_TX",
+    [SEQ_STATE_TX]            = "TX",
+    [SEQ_STATE_SEQUENCING_RX] = "SEQ_RX",
+    [SEQ_STATE_FAULT]         = "FAULT",
+};
+
+static const char *s_fault_names[] = {
+    [SEQ_FAULT_NONE]       = "none",
+    [SEQ_FAULT_HIGH_SWR]   = "HIGH_SWR",
+    [SEQ_FAULT_OVER_TEMP1] = "OVER_TEMP1",
+    [SEQ_FAULT_OVER_TEMP2] = "OVER_TEMP2",
+    [SEQ_FAULT_EMERGENCY]  = "EMERGENCY",
+};
+
+typedef struct {
+    const char  *key;
+    seq_fault_t  fault;
+} fault_keyword_t;
+
+static const fault_keyword_t s_fault_keywords[] = {
+    { "swr",       SEQ_FAULT_HIGH_SWR   },
+    { "temp1",     SEQ_FAULT_OVER_TEMP1  },
+    { "temp2",     SEQ_FAULT_OVER_TEMP2  },
+    { "emergency", SEQ_FAULT_EMERGENCY   },
+};
+
+#define FAULT_KEYWORD_COUNT  (sizeof(s_fault_keywords) / sizeof(s_fault_keywords[0]))
+
+const char *seq_state_name(seq_state_t state)
+{
+    if (state < sizeof(s_state_names) / sizeof(s_state_names[0]) && s_state_names[state]) {
+        return s_state_names[state];
+    }
+    return "UNKNOWN";
+}
+
+const char *seq_fault_name(seq_fault_t fault)
+{
+    if (fault < sizeof(s_fault_names) / sizeof(s_fault_names[0]) && s_fault_names[fault]) {
+        return s_fault_names[fault];
+    }
+    return "UNKNOWN";
+}
+
+bool seq_fault_parse(const char *str, seq_fault_t *out)
+{
+    for (size_t i = 0; i < FAULT_KEYWORD_COUNT; i++) {
+        if (strcmp(str, s_fault_keywords[i].key) == 0) {
+            *out = s_fault_keywords[i].fault;
+            return true;
+        }
+    }
+    return false;
+}
+
+/* ---------------------------------------------------------
  * Module state
  * --------------------------------------------------------- */
 static QueueHandle_t s_queue = NULL;
