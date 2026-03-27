@@ -13,6 +13,10 @@
 #include "nvs.h"
 #include "wifi_sta.h"
 
+#include "esp_partition.h"
+#include "esp_spiffs.h"
+#include "web_server.h"
+
 #include "ota.h"
 
 static const char *TAG = "ota";
@@ -173,9 +177,10 @@ esp_err_t app_ota_get_repo(char *buf, size_t buf_len)
 
 /* ---- URL construction --------------------------------------------------- */
 
-static esp_err_t build_url(const char *target, char *url, size_t url_len)
+static esp_err_t build_url(const char *target, const char *filename,
+                           char *url, size_t url_len)
 {
-    /* Full URL — use as-is */
+    /* Full URL — use as-is (only valid for firmware, not SPIFFS) */
     if (strncmp(target, "http", 4) == 0) {
         if (strlen(target) >= url_len) {
             return ESP_ERR_INVALID_SIZE;
@@ -195,18 +200,161 @@ static esp_err_t build_url(const char *target, char *url, size_t url_len)
     int written;
     if (strcmp(target, "latest") == 0) {
         written = snprintf(url, url_len,
-            "https://github.com/%s/releases/latest/download/firmware.bin",
-            repo);
+            "https://github.com/%s/releases/latest/download/%s",
+            repo, filename);
     } else {
         written = snprintf(url, url_len,
-            "https://github.com/%s/releases/download/%s/firmware.bin",
-            repo, target);
+            "https://github.com/%s/releases/download/%s/%s",
+            repo, target, filename);
     }
 
     if (written < 0 || (size_t)written >= url_len) {
         return ESP_ERR_INVALID_SIZE;
     }
     return ESP_OK;
+}
+
+/* ---- SPIFFS partition update -------------------------------------------- */
+
+#define SPIFFS_BUF_SIZE 1024
+
+/**
+ * Download and write a SPIFFS image to the storage partition.
+ * Returns ESP_OK on success, ESP_ERR_NOT_FOUND if the server returns 404
+ * (no spiffs.bin in this release), or another error on failure.
+ */
+static esp_err_t ota_update_spiffs(const char *url)
+{
+    const esp_partition_t *part = esp_partition_find_first(
+        ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, "storage");
+    if (!part) {
+        ESP_LOGW(TAG, "No SPIFFS partition found — skipping filesystem update");
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    /* Stop web server to release the SPIFFS mount */
+    web_server_stop();
+
+    /* Unmount SPIFFS in case it was mounted outside the web server */
+    esp_vfs_spiffs_unregister("storage");
+
+    esp_http_client_config_t http_cfg = {
+        .url = url,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+        .timeout_ms = OTA_RECV_TIMEOUT,
+        .buffer_size = SPIFFS_BUF_SIZE,
+        .buffer_size_tx = 512,
+    };
+
+    esp_http_client_handle_t client = esp_http_client_init(&http_cfg);
+    if (!client) {
+        ESP_LOGE(TAG, "Failed to init HTTP client for SPIFFS");
+        return ESP_FAIL;
+    }
+
+    esp_err_t err = esp_http_client_open(client, 0);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "HTTP open failed: %s", esp_err_to_name(err));
+        esp_http_client_cleanup(client);
+        return err;
+    }
+
+    int content_length = esp_http_client_fetch_headers(client);
+    int status = esp_http_client_get_status_code(client);
+
+    if (status == 404) {
+        ESP_LOGI(TAG, "No SPIFFS image in release (404) — skipping filesystem update");
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    if (status != 200) {
+        ESP_LOGE(TAG, "SPIFFS download HTTP %d", status);
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
+    }
+
+    /* Check image fits in partition */
+    if (content_length > 0 && (size_t)content_length > part->size) {
+        printf("Error: SPIFFS image (%d bytes) exceeds partition size (%lu bytes)\n",
+               content_length, (unsigned long)part->size);
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    printf("Updating SPIFFS filesystem...\n");
+    if (content_length > 0) {
+        printf("  Image size: %d bytes, partition size: %lu bytes\n",
+               content_length, (unsigned long)part->size);
+    }
+
+    /* Erase the partition */
+    err = esp_partition_erase_range(part, 0, part->size);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Partition erase failed: %s", esp_err_to_name(err));
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+        return err;
+    }
+
+    /* Stream and write */
+    char *buf = malloc(SPIFFS_BUF_SIZE);
+    if (!buf) {
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+        return ESP_ERR_NO_MEM;
+    }
+
+    size_t offset = 0;
+    int last_progress = -1;
+
+    while (1) {
+        int read_len = esp_http_client_read(client, buf, SPIFFS_BUF_SIZE);
+        if (read_len < 0) {
+            ESP_LOGE(TAG, "SPIFFS download read error");
+            err = ESP_FAIL;
+            break;
+        }
+        if (read_len == 0) {
+            break; /* download complete */
+        }
+
+        if (offset + read_len > part->size) {
+            printf("Error: SPIFFS image exceeds partition size\n");
+            err = ESP_ERR_INVALID_SIZE;
+            break;
+        }
+
+        err = esp_partition_write(part, offset, buf, read_len);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Partition write failed at offset %u: %s",
+                     (unsigned)offset, esp_err_to_name(err));
+            break;
+        }
+
+        offset += read_len;
+
+        if (content_length > 0) {
+            int progress = (int)((offset * 100) / content_length);
+            if (progress / 10 != last_progress / 10) {
+                printf("  SPIFFS: %d%% (%u / %d bytes)\n",
+                       progress, (unsigned)offset, content_length);
+                last_progress = progress;
+            }
+        }
+    }
+
+    free(buf);
+    esp_http_client_close(client);
+    esp_http_client_cleanup(client);
+
+    if (err == ESP_OK) {
+        printf("  SPIFFS update complete (%u bytes written)\n", (unsigned)offset);
+    }
+    return err;
 }
 
 /* ---- OTA update --------------------------------------------------------- */
@@ -219,7 +367,29 @@ esp_err_t app_ota_update(const char *target)
     }
 
     char url[MAX_URL_LEN];
-    esp_err_t err = build_url(target, url, sizeof(url));
+
+    /* ---- Step 1: Update SPIFFS (optional) ---- */
+    bool is_direct_url = (strncmp(target, "http", 4) == 0);
+    if (!is_direct_url) {
+        esp_err_t spiffs_err = build_url(target, "spiffs.bin", url, sizeof(url));
+        if (spiffs_err == ESP_ERR_NVS_NOT_FOUND) {
+            printf("Error: No GitHub repo configured. Set with 'ota repo owner/repo'\n");
+            return spiffs_err;
+        }
+        if (spiffs_err == ESP_OK) {
+            printf("Checking for SPIFFS update: %s\n", url);
+            spiffs_err = ota_update_spiffs(url);
+            if (spiffs_err != ESP_OK && spiffs_err != ESP_ERR_NOT_FOUND) {
+                printf("Error: SPIFFS update failed: %s\n", esp_err_to_name(spiffs_err));
+                return spiffs_err;
+            }
+        }
+    } else {
+        printf("Direct URL target — skipping SPIFFS update\n");
+    }
+
+    /* ---- Step 2: Update firmware ---- */
+    esp_err_t err = build_url(target, "firmware.bin", url, sizeof(url));
     if (err == ESP_ERR_NVS_NOT_FOUND) {
         printf("Error: No GitHub repo configured. Set with 'ota repo owner/repo'\n");
         return err;
@@ -229,7 +399,7 @@ esp_err_t app_ota_update(const char *target)
         return err;
     }
 
-    printf("OTA update from: %s\n", url);
+    printf("Firmware update from: %s\n", url);
     printf("Starting download...\n");
 
     /* Enable logging temporarily so TLS/HTTP errors are visible */

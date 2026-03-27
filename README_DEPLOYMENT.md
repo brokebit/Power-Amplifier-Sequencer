@@ -50,20 +50,22 @@
    ```bash
    gh release create v1.2.0 \
      .pio/build/esp32-s3-devkitm-1/firmware.bin \
+     .pio/build/esp32-s3-devkitm-1/spiffs.bin \
      .pio/build/esp32-s3-devkitm-1/combined.bin \
      --title "v1.2.0" \
      --notes "Release notes here."
    ```
 
-   Alternatively, create the release through the GitHub web UI and drag/drop both files.
+   Alternatively, create the release through the GitHub web UI and drag/drop the files.
 
 ### Release assets
 
-Each release should contain two files:
+Each release should contain three files:
 
 | File | Purpose |
 |------|---------|
-| `firmware.bin` | OTA updates — devices already running this firmware download this file |
+| `firmware.bin` | OTA updates — app partition only |
+| `spiffs.bin` | OTA updates — web UI static files (SPIFFS partition). Optional: if absent, OTA skips the filesystem update. |
 | `combined.bin` | First-time USB flash — includes bootloader, partition table, OTA data, firmware, and SPIFFS web UI in a single file |
 
 ## Flashing Pre-Built Firmware (USB)

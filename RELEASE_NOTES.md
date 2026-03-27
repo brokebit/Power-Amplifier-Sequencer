@@ -1,5 +1,23 @@
 # Release Notes
 
+## v1.1.3
+
+### Improvements
+
+**OTA: SPIFFS filesystem update alongside firmware**
+
+`ota update latest` only wrote `firmware.bin` to the inactive app partition. The SPIFFS `storage` partition (web UI static files) was never updated over-the-air — users had to USB-flash to get web UI changes.
+
+OTA now downloads and writes `spiffs.bin` to the `storage` partition before starting the firmware update. The web server is stopped and SPIFFS unmounted before the write. If the release has no `spiffs.bin` (HTTP 404), SPIFFS is skipped and the firmware update proceeds as before. If the SPIFFS download fails for any other reason, the entire update aborts before touching firmware. Image size is validated against the partition size before erasing. `build_url()` now accepts a filename parameter so the same function builds URLs for both assets.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `components/ota/ota.c` | SPIFFS partition update, `build_url()` takes filename, two-step OTA flow |
+| `components/ota/CMakeLists.txt` | Added `spiffs` and `web_server` to REQUIRES |
+| `README_DEPLOYMENT.md` | Added `spiffs.bin` to release assets and `gh release create` command |
+
 ## v1.1.2
 
 ### Bug Fixes
@@ -70,13 +88,13 @@ Replaced hardcoded `6` (relay count) and `"1-6"` string assertions across all te
 | `components/config/include/config.h` | Added `config_lock()`/`config_unlock()`, `SEQ_MAX_DELAY_MS` |
 | `components/config/CMakeLists.txt` | Added `freertos` to REQUIRES |
 | `components/monitor/monitor.c` | Lock around `memcpy` in `monitor_update_config()` |
-| `components/cli/cmd_status.c` | Replaced local name tables with `seq_state_name()`/`seq_fault_name()` |
+| `components/cli/cmd_status.c` | Replaced local name tables with shared helpers |
 | `components/cli/cmd_fault.c` | Replaced local name tables and fault parsing with shared helpers |
-| `components/cli/cmd_monitor.c` | Replaced local name tables with `seq_state_name()`/`seq_fault_name()` |
+| `components/cli/cmd_monitor.c` | Replaced local name tables with shared helpers |
 | `components/cli/cmd_seq.c` | Config lock on step writes, relay/delay validation uses constants |
 | `components/cli/cmd_relay.c` | Config lock on relay name writes |
 | `components/web_server/api_config.c` | Snapshot copy under lock for GET, added `pending_apply` |
-| `components/web_server/api_state.c` | Replaced local name tables with `seq_state_name()`/`seq_fault_name()` |
+| `components/web_server/api_state.c` | Replaced local name tables with shared helpers |
 | `components/web_server/api_fault.c` | Replaced fault parsing with `seq_fault_parse()` |
 | `components/web_server/api_seq.c` | Config lock on step writes, relay/delay validation uses constants |
 | `components/web_server/api_relay.c` | Config lock on name writes, relay ID error messages use `HW_RELAY_COUNT` |
