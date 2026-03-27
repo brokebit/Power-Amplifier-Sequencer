@@ -78,3 +78,25 @@ class TestFaultClear:
         # Should either succeed (no-op) or return 409 "not in FAULT state"
         if not body["ok"]:
             assert "fault" in body["error"].lower() or "state" in body["error"].lower()
+
+    def test_clear_restores_rx_relay_state(self, api):
+        """After clearing a fault, relays should match the RX sequence end state."""
+        # Reset to defaults so we know the expected RX state (all off)
+        api.post_ok("/api/config/defaults")
+        api.post("/api/fault/clear")
+        wait_for_state(api, "RX")
+        api.post_ok("/api/seq/apply")
+
+        # Inject a fault
+        api.post_ok("/api/fault/inject", json={"type": "swr"})
+        state = wait_for_state(api, "FAULT")
+        assert state["seq_state"] == "FAULT"
+
+        # Clear the fault — should run the RX sequence (default = all relays off)
+        api.post_ok("/api/fault/clear")
+        state = wait_for_state(api, "RX")
+        assert state["seq_state"] == "RX"
+
+        # All relays should be off (matching the default RX sequence end state)
+        for i, relay_on in enumerate(state["relays"]):
+            assert relay_on is False, f"Relay {i+1} should be OFF after fault clear"

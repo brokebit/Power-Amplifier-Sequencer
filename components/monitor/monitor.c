@@ -116,7 +116,9 @@ esp_err_t monitor_read_channel(ads1115_channel_t ch, float *out_voltage)
 
 esp_err_t monitor_update_config(const app_config_t *cfg)
 {
+    config_lock();
     memcpy(&s_cfg, cfg, sizeof(s_cfg));
+    config_unlock();
     ESP_LOGI(TAG, "Config updated");
     return ESP_OK;
 }

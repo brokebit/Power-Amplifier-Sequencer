@@ -1,5 +1,8 @@
 """Tests for GET /api/state and GET /api/version."""
 
+# Must match HW_RELAY_COUNT in hw_config.h
+RELAY_COUNT = 6
+
 
 class TestGetState:
     """GET /api/state — system state snapshot."""
@@ -26,14 +29,14 @@ class TestGetState:
     def test_has_relays_array(self, api):
         data = api.get_ok("/api/state")
         assert isinstance(data["relays"], list)
-        assert len(data["relays"]) == 6
+        assert len(data["relays"]) == RELAY_COUNT
         for r in data["relays"]:
             assert isinstance(r, bool)
 
     def test_has_relay_names_array(self, api):
         data = api.get_ok("/api/state")
         assert isinstance(data["relay_names"], list)
-        assert len(data["relay_names"]) == 6
+        assert len(data["relay_names"]) == RELAY_COUNT
         for name in data["relay_names"]:
             assert isinstance(name, str)
 

@@ -5,6 +5,7 @@
 #include "cJSON.h"
 #include "config.h"
 #include "hw_config.h"
+#include "sequencer.h"
 
 #include "web_json.h"
 #include "web_server.h"
@@ -20,50 +21,61 @@ static esp_err_t api_config_get_handler(httpd_req_t *req)
         return web_json_error(req, 500, "out of memory");
     }
 
+    /* Snapshot the config under the lock so we get a consistent read. */
+    config_lock();
+    app_config_t snap;
+    memcpy(&snap, cfg, sizeof(snap));
+    config_unlock();
+
     /* Thresholds */
-    cJSON_AddNumberToObject(data, "swr_threshold", cfg->swr_fault_threshold);
-    cJSON_AddNumberToObject(data, "temp1_threshold", cfg->temp1_fault_threshold_c);
-    cJSON_AddNumberToObject(data, "temp2_threshold", cfg->temp2_fault_threshold_c);
-    cJSON_AddNumberToObject(data, "pa_relay", cfg->pa_relay_id);
+    cJSON_AddNumberToObject(data, "swr_threshold", snap.swr_fault_threshold);
+    cJSON_AddNumberToObject(data, "temp1_threshold", snap.temp1_fault_threshold_c);
+    cJSON_AddNumberToObject(data, "temp2_threshold", snap.temp2_fault_threshold_c);
+    cJSON_AddNumberToObject(data, "pa_relay", snap.pa_relay_id);
 
     /* Calibration */
-    cJSON_AddNumberToObject(data, "fwd_cal", cfg->fwd_power_cal_factor);
-    cJSON_AddNumberToObject(data, "ref_cal", cfg->ref_power_cal_factor);
+    cJSON_AddNumberToObject(data, "fwd_cal", snap.fwd_power_cal_factor);
+    cJSON_AddNumberToObject(data, "ref_cal", snap.ref_power_cal_factor);
 
     /* Thermistor */
-    cJSON_AddNumberToObject(data, "therm_beta", cfg->thermistor_beta);
-    cJSON_AddNumberToObject(data, "therm_r0", cfg->thermistor_r0_ohms);
-    cJSON_AddNumberToObject(data, "therm_rseries", cfg->thermistor_r_series_ohms);
+    cJSON_AddNumberToObject(data, "therm_beta", snap.thermistor_beta);
+    cJSON_AddNumberToObject(data, "therm_r0", snap.thermistor_r0_ohms);
+    cJSON_AddNumberToObject(data, "therm_rseries", snap.thermistor_r_series_ohms);
 
     /* Relay names */
     cJSON *names = cJSON_CreateArray();
     for (int i = 0; i < HW_RELAY_COUNT; i++) {
         cJSON_AddItemToArray(names,
-            cJSON_CreateString(cfg->relay_names[i][0] ? cfg->relay_names[i] : ""));
+            cJSON_CreateString(snap.relay_names[i][0] ? snap.relay_names[i] : ""));
     }
     cJSON_AddItemToObject(data, "relay_names", names);
 
     /* TX sequence */
     cJSON *tx = cJSON_CreateArray();
-    for (int i = 0; i < cfg->tx_num_steps; i++) {
+    for (int i = 0; i < snap.tx_num_steps; i++) {
         cJSON *step = cJSON_CreateObject();
-        cJSON_AddNumberToObject(step, "relay_id", cfg->tx_steps[i].relay_id);
-        cJSON_AddBoolToObject(step, "state", cfg->tx_steps[i].state);
-        cJSON_AddNumberToObject(step, "delay_ms", cfg->tx_steps[i].delay_ms);
+        cJSON_AddNumberToObject(step, "relay_id", snap.tx_steps[i].relay_id);
+        cJSON_AddBoolToObject(step, "state", snap.tx_steps[i].state);
+        cJSON_AddNumberToObject(step, "delay_ms", snap.tx_steps[i].delay_ms);
         cJSON_AddItemToArray(tx, step);
     }
     cJSON_AddItemToObject(data, "tx_steps", tx);
 
     /* RX sequence */
     cJSON *rx = cJSON_CreateArray();
-    for (int i = 0; i < cfg->rx_num_steps; i++) {
+    for (int i = 0; i < snap.rx_num_steps; i++) {
         cJSON *step = cJSON_CreateObject();
-        cJSON_AddNumberToObject(step, "relay_id", cfg->rx_steps[i].relay_id);
-        cJSON_AddBoolToObject(step, "state", cfg->rx_steps[i].state);
-        cJSON_AddNumberToObject(step, "delay_ms", cfg->rx_steps[i].delay_ms);
+        cJSON_AddNumberToObject(step, "relay_id", snap.rx_steps[i].relay_id);
+        cJSON_AddBoolToObject(step, "state", snap.rx_steps[i].state);
+        cJSON_AddNumberToObject(step, "delay_ms", snap.rx_steps[i].delay_ms);
         cJSON_AddItemToArray(rx, step);
     }
     cJSON_AddItemToObject(data, "rx_steps", rx);
+
+    /* True when in-memory config has been edited but not yet pushed
+     * to the live sequencer/monitor via POST /api/seq/apply. */
+    cJSON_AddBoolToObject(data, "pending_apply",
+                          !sequencer_config_matches(&snap));
 
     return web_json_ok(req, data);
 }

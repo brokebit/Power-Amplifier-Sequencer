@@ -62,19 +62,26 @@ static esp_err_t api_seq_handler(httpd_req_t *req)
             !state_json || !cJSON_IsBool(state_json) ||
             !delay_json || !cJSON_IsNumber(delay_json)) {
             cJSON_Delete(body);
-            return web_json_error(req, 400,
-                "each step needs: relay_id (1-6), state (bool), delay_ms (0-10000)");
+            char msg[80];
+            snprintf(msg, sizeof(msg),
+                     "each step needs: relay_id (1-%d), state (bool), delay_ms (0-%d)",
+                     HW_RELAY_COUNT, SEQ_MAX_DELAY_MS);
+            return web_json_error(req, 400, msg);
         }
 
         int relay_id = relay_id_json->valueint;
-        if (relay_id < 1 || relay_id > 6) {
+        if (relay_id < 1 || relay_id > HW_RELAY_COUNT) {
             cJSON_Delete(body);
-            return web_json_error(req, 400, "relay_id must be 1-6");
+            char msg[48];
+            snprintf(msg, sizeof(msg), "relay_id must be 1-%d", HW_RELAY_COUNT);
+            return web_json_error(req, 400, msg);
         }
         int delay_ms = delay_json->valueint;
-        if (delay_ms < 0 || delay_ms > 10000) {
+        if (delay_ms < 0 || delay_ms > SEQ_MAX_DELAY_MS) {
             cJSON_Delete(body);
-            return web_json_error(req, 400, "delay_ms must be 0-10000");
+            char msg[48];
+            snprintf(msg, sizeof(msg), "delay_ms must be 0-%d", SEQ_MAX_DELAY_MS);
+            return web_json_error(req, 400, msg);
         }
 
         new_steps[i].relay_id = (uint8_t)relay_id;
@@ -82,8 +89,10 @@ static esp_err_t api_seq_handler(httpd_req_t *req)
         new_steps[i].delay_ms = (uint16_t)delay_ms;
     }
 
+    config_lock();
     memcpy(steps, new_steps, count * sizeof(seq_step_t));
     *num_ptr = (uint8_t)count;
+    config_unlock();
 
     cJSON_Delete(body);
     return web_json_ok(req, NULL);

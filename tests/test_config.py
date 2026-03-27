@@ -2,6 +2,9 @@
 
 import pytest
 
+# Must match HW_RELAY_COUNT in hw_config.h
+RELAY_COUNT = 6
+
 
 class TestGetConfig:
     """GET /api/config — full config dump."""
@@ -19,7 +22,7 @@ class TestGetConfig:
     def test_has_pa_relay(self, api):
         data = api.get_ok("/api/config")
         assert isinstance(data["pa_relay"], int)
-        assert 1 <= data["pa_relay"] <= 6
+        assert 1 <= data["pa_relay"] <= RELAY_COUNT
 
     def test_has_calibration_factors(self, api):
         data = api.get_ok("/api/config")
@@ -35,7 +38,7 @@ class TestGetConfig:
     def test_has_relay_names(self, api):
         data = api.get_ok("/api/config")
         assert isinstance(data["relay_names"], list)
-        assert len(data["relay_names"]) == 6
+        assert len(data["relay_names"]) == RELAY_COUNT
 
     def test_has_tx_steps(self, api):
         data = api.get_ok("/api/config")
@@ -52,6 +55,11 @@ class TestGetConfig:
             assert "relay_id" in step
             assert "state" in step
             assert "delay_ms" in step
+
+    def test_has_pending_apply(self, api):
+        data = api.get_ok("/api/config")
+        assert "pending_apply" in data
+        assert isinstance(data["pending_apply"], bool)
 
 
 @pytest.mark.write
@@ -195,3 +203,43 @@ class TestConfigDefaults:
         assert data["pa_relay"] == 2
         assert abs(data["fwd_cal"] - 1.0) < 0.01
         assert abs(data["ref_cal"] - 1.0) < 0.01
+
+
+@pytest.mark.write
+class TestPendingApply:
+    """pending_apply flag lifecycle."""
+
+    def test_pending_false_after_apply(self, api):
+        """After applying, pending_apply should be false."""
+        # Ensure clean state: defaults then apply
+        api.post_ok("/api/config/defaults")
+        api.post("/api/fault/clear")
+        api.post_ok("/api/seq/apply")
+
+        data = api.get_ok("/api/config")
+        assert data["pending_apply"] is False
+
+    def test_pending_true_after_edit(self, api):
+        """Editing a config value without applying should set pending_apply."""
+        # Start from a clean applied state
+        api.post_ok("/api/config/defaults")
+        api.post("/api/fault/clear")
+        api.post_ok("/api/seq/apply")
+
+        # Modify a threshold — this changes the in-memory config
+        # but the sequencer still has the old copy
+        original = api.get_ok("/api/config")["swr_threshold"]
+        new_val = 2.5 if original != 2.5 else 3.5
+        api.post_ok("/api/config", json={"key": "swr_threshold", "value": str(new_val)})
+
+        data = api.get_ok("/api/config")
+        assert data["pending_apply"] is True
+
+        # Apply and verify it clears
+        api.post_ok("/api/seq/apply")
+        data = api.get_ok("/api/config")
+        assert data["pending_apply"] is False
+
+        # Restore
+        api.post_ok("/api/config", json={"key": "swr_threshold", "value": str(original)})
+        api.post_ok("/api/seq/apply")

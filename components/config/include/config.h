@@ -14,7 +14,8 @@
 extern "C" {
 #endif
 
-#define SEQ_MAX_STEPS 8    /* Max relay steps per TX or RX sequence */
+#define SEQ_MAX_STEPS    8      /* Max relay steps per TX or RX sequence */
+#define SEQ_MAX_DELAY_MS 10000  /* Max delay between sequence steps (ms) */
 #define CFG_RELAY_NAME_LEN 16   /* Max relay name length including null terminator */
 
 /* NVS namespace and blob key */
@@ -95,9 +96,22 @@ const char *config_relay_label(const app_config_t *cfg, uint8_t relay_id,
                                char *buf, size_t buf_len);
 
 /**
+ * Acquire/release the config mutex.  All code that reads or writes the
+ * shared app_config_t must hold this lock.  Functions in this module
+ * (config_set_by_key, config_defaults, config_save) lock internally;
+ * callers doing direct struct writes (sequence steps, relay names)
+ * must lock/unlock explicitly.
+ *
+ * The mutex is created by config_init() and must not be used before that.
+ */
+void config_lock(void);
+void config_unlock(void);
+
+/**
  * Set a config field by key name (string) and value (string).
  * Handles type conversion and range validation.
  * On error, writes a message into err_msg (if non-NULL).
+ * Acquires the config mutex internally.
  *
  * Valid keys: swr_threshold, temp1_threshold, temp2_threshold,
  *             fwd_cal, ref_cal, therm_beta, therm_r0, therm_rseries,

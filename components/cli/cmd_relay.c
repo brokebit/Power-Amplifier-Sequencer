@@ -62,15 +62,19 @@ static int cmd_relay_handler(int argc, char **argv)
         }
         if (argc < 4) {
             /* Clear name */
+            config_lock();
             cfg->relay_names[id - 1][0] = '\0';
+            config_unlock();
             printf("R%ld name cleared\n", id);
         } else {
             if (strlen(argv[3]) >= CFG_RELAY_NAME_LEN) {
                 printf("Name too long (max %d chars)\n", CFG_RELAY_NAME_LEN - 1);
                 return 1;
             }
+            config_lock();
             strncpy(cfg->relay_names[id - 1], argv[3], CFG_RELAY_NAME_LEN - 1);
             cfg->relay_names[id - 1][CFG_RELAY_NAME_LEN - 1] = '\0';
+            config_unlock();
             printf("R%ld = %s\n", id, cfg->relay_names[id - 1]);
         }
         printf("Use 'config save' to persist\n");

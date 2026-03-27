@@ -107,6 +107,12 @@ seq_fault_t sequencer_get_fault(void);
  */
 esp_err_t sequencer_update_config(const app_config_t *cfg);
 
+/**
+ * Return true if the sequencer's private config matches the provided config.
+ * Used to detect whether an apply is needed after in-memory edits.
+ */
+bool sequencer_config_matches(const app_config_t *cfg);
+
 #ifdef __cplusplus
 }
 #endif

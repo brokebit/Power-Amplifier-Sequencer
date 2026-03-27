@@ -59,8 +59,8 @@ static int parse_steps(int argc, char **argv, int first_arg,
             return -1;
         }
 
-        if (relay_id < 1 || relay_id > 6) {
-            printf("Invalid relay R%u (expected 1-6)\n", relay_id);
+        if (relay_id < 1 || relay_id > HW_RELAY_COUNT) {
+            printf("Invalid relay R%u (expected 1-%d)\n", relay_id, HW_RELAY_COUNT);
             return -1;
         }
 
@@ -74,8 +74,8 @@ static int parse_steps(int argc, char **argv, int first_arg,
             return -1;
         }
 
-        if (delay_ms > 10000) {
-            printf("Delay %ums too large (max 10000)\n", delay_ms);
+        if (delay_ms > SEQ_MAX_DELAY_MS) {
+            printf("Delay %ums too large (max %d)\n", delay_ms, SEQ_MAX_DELAY_MS);
             return -1;
         }
 
@@ -165,8 +165,10 @@ static int cmd_seq_handler(int argc, char **argv)
             return 1;
         }
 
+        config_lock();
         memcpy(steps, new_steps, count * sizeof(seq_step_t));
         *num_ptr = (uint8_t)count;
+        config_unlock();
 
         print_sequence(label, steps, *num_ptr);
         printf("(use 'seq save' to persist, 'seq apply' to activate)\n");

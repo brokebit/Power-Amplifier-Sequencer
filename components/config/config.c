@@ -5,6 +5,8 @@
 
 #include "esp_log.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 
@@ -12,8 +14,21 @@
 
 static const char *TAG = "config";
 
+static SemaphoreHandle_t s_cfg_mutex;
+
+void config_lock(void)
+{
+    xSemaphoreTake(s_cfg_mutex, portMAX_DELAY);
+}
+
+void config_unlock(void)
+{
+    xSemaphoreGive(s_cfg_mutex);
+}
+
 void config_defaults(app_config_t *cfg)
 {
+    config_lock();
     memset(cfg, 0, sizeof(*cfg));
 
     /* Default TX sequence: R3 → R1 → R2 (ON), 10ms inter-step */
@@ -42,10 +57,18 @@ void config_defaults(app_config_t *cfg)
     cfg->thermistor_beta = 3950.0f;
     cfg->thermistor_r0_ohms = 100000.0f;
     cfg->thermistor_r_series_ohms = 100000.0f;
+
+    config_unlock();
 }
 
 esp_err_t config_init(app_config_t *cfg)
 {
+    s_cfg_mutex = xSemaphoreCreateMutex();
+    if (!s_cfg_mutex) {
+        ESP_LOGE(TAG, "Failed to create config mutex");
+        return ESP_ERR_NO_MEM;
+    }
+
     /* Initialise NVS — erase and reinit if partition is truncated or has no pages */
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -142,7 +165,7 @@ static const config_float_key_t s_float_keys[] = {
 #define NUM_FLOAT_KEYS (sizeof(s_float_keys) / sizeof(s_float_keys[0]))
 
 static const config_int_key_t s_int_keys[] = {
-    CFG_INT_KEY("pa_relay", pa_relay_id, 1, 6),
+    CFG_INT_KEY("pa_relay", pa_relay_id, 1, HW_RELAY_COUNT),
 };
 
 #define NUM_INT_KEYS (sizeof(s_int_keys) / sizeof(s_int_keys[0]))
@@ -150,6 +173,8 @@ static const config_int_key_t s_int_keys[] = {
 esp_err_t config_set_by_key(app_config_t *cfg, const char *key,
                             const char *value_str, char *err_msg, size_t err_len)
 {
+    config_lock();
+
     /* Try float keys first */
     for (size_t i = 0; i < NUM_FLOAT_KEYS; i++) {
         if (strcmp(s_float_keys[i].key, key) == 0) {
@@ -159,6 +184,7 @@ esp_err_t config_set_by_key(app_config_t *cfg, const char *key,
                 if (err_msg) {
                     snprintf(err_msg, err_len, "invalid number: %s", value_str);
                 }
+                config_unlock();
                 return ESP_ERR_INVALID_ARG;
             }
             if (val < s_float_keys[i].min || val > s_float_keys[i].max) {
@@ -166,10 +192,12 @@ esp_err_t config_set_by_key(app_config_t *cfg, const char *key,
                     snprintf(err_msg, err_len, "out of range [%.3g .. %.3g]",
                              s_float_keys[i].min, s_float_keys[i].max);
                 }
+                config_unlock();
                 return ESP_ERR_INVALID_ARG;
             }
             float *field = (float *)((uint8_t *)cfg + s_float_keys[i].offset);
             *field = val;
+            config_unlock();
             return ESP_OK;
         }
     }
@@ -183,6 +211,7 @@ esp_err_t config_set_by_key(app_config_t *cfg, const char *key,
                 if (err_msg) {
                     snprintf(err_msg, err_len, "invalid integer: %s", value_str);
                 }
+                config_unlock();
                 return ESP_ERR_INVALID_ARG;
             }
             if (val < s_int_keys[i].min || val > s_int_keys[i].max) {
@@ -190,14 +219,17 @@ esp_err_t config_set_by_key(app_config_t *cfg, const char *key,
                     snprintf(err_msg, err_len, "out of range [%d .. %d]",
                              s_int_keys[i].min, s_int_keys[i].max);
                 }
+                config_unlock();
                 return ESP_ERR_INVALID_ARG;
             }
             uint8_t *field = (uint8_t *)cfg + s_int_keys[i].offset;
             *field = (uint8_t)val;
+            config_unlock();
             return ESP_OK;
         }
     }
 
+    config_unlock();
     if (err_msg) {
         snprintf(err_msg, err_len, "unknown key: %s", key);
     }
@@ -206,10 +238,13 @@ esp_err_t config_set_by_key(app_config_t *cfg, const char *key,
 
 esp_err_t config_save(const app_config_t *cfg)
 {
+    config_lock();
+
     nvs_handle_t handle;
     esp_err_t err = nvs_open(CFG_NVS_NAMESPACE, NVS_READWRITE, &handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "nvs_open failed: %s", esp_err_to_name(err));
+        config_unlock();
         return err;
     }
 
@@ -224,5 +259,6 @@ esp_err_t config_save(const app_config_t *cfg)
     }
 
     nvs_close(handle);
+    config_unlock();
     return err;
 }

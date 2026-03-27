@@ -3,12 +3,15 @@
 import pytest
 import time
 
+# Must match HW_RELAY_COUNT in hw_config.h
+RELAY_COUNT = 6
+
 
 @pytest.mark.write
 class TestPostRelay:
     """POST /api/relay — set relay on/off."""
 
-    @pytest.mark.parametrize("relay_id", [1, 2, 3, 4, 5, 6])
+    @pytest.mark.parametrize("relay_id", list(range(1, RELAY_COUNT + 1)))
     def test_relay_on_off(self, api, relay_id):
         """Turn each relay on, verify in state, turn off, verify."""
         # Turn on
@@ -23,11 +26,11 @@ class TestPostRelay:
 
     def test_invalid_relay_id_zero(self, api):
         error = api.post_error("/api/relay", json={"id": 0, "on": True})
-        assert "relay" in error.lower() or "1-6" in error
+        assert "relay" in error.lower()
 
-    def test_invalid_relay_id_seven(self, api):
-        error = api.post_error("/api/relay", json={"id": 7, "on": True})
-        assert "relay" in error.lower() or "1-6" in error
+    def test_invalid_relay_id_over_max(self, api):
+        error = api.post_error("/api/relay", json={"id": RELAY_COUNT + 1, "on": True})
+        assert "relay" in error.lower()
 
     def test_missing_id_returns_error(self, api):
         error = api.post_error("/api/relay", json={"on": True})
@@ -60,16 +63,16 @@ class TestPostRelayName:
         assert state["relay_names"][0] == ""
 
     def test_set_name_all_relays(self, api):
-        """Set names on all 6 relays, then clear them."""
-        for i in range(1, 7):
+        """Set names on all relays, then clear them."""
+        for i in range(1, RELAY_COUNT + 1):
             api.post_ok("/api/relay/name", json={"id": i, "name": f"R{i}Test"})
 
         config = api.get_ok("/api/config")
-        for i in range(6):
+        for i in range(RELAY_COUNT):
             assert config["relay_names"][i] == f"R{i+1}Test"
 
         # Clean up
-        for i in range(1, 7):
+        for i in range(1, RELAY_COUNT + 1):
             api.post_ok("/api/relay/name", json={"id": i, "name": ""})
 
     def test_name_truncated_at_15_chars(self, api):

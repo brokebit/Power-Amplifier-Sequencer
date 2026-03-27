@@ -77,12 +77,12 @@ class TestPostSeq:
     def test_invalid_relay_id_in_step(self, api):
         steps = [{"relay_id": 7, "state": True, "delay_ms": 0}]
         error = api.post_error("/api/seq", json={"direction": "tx", "steps": steps})
-        assert "relay" in error.lower() or "1-6" in error
+        assert "relay" in error.lower()
 
     def test_invalid_delay_in_step(self, api):
         steps = [{"relay_id": 1, "state": True, "delay_ms": 20000}]
         error = api.post_error("/api/seq", json={"direction": "tx", "steps": steps})
-        assert "delay" in error.lower() or "10000" in error
+        assert "delay" in error.lower()
 
     def test_missing_fields_in_step(self, api):
         steps = [{"relay_id": 1}]

@@ -1,8 +1,10 @@
+#include <stdio.h>
 #include <string.h>
 
 #include "esp_http_server.h"
 
 #include "cJSON.h"
+#include "config.h"
 #include "hw_config.h"
 #include "relays.h"
 
@@ -31,7 +33,9 @@ static esp_err_t api_relay_handler(httpd_req_t *req)
 
     esp_err_t err = relay_set((uint8_t)id, on);
     if (err == ESP_ERR_INVALID_ARG) {
-        return web_json_error(req, 400, "relay id must be 1-6");
+        char msg[48];
+        snprintf(msg, sizeof(msg), "relay id must be 1-%d", HW_RELAY_COUNT);
+        return web_json_error(req, 400, msg);
     }
     if (err != ESP_OK) {
         return web_json_error(req, 500, "relay_set failed");
@@ -59,10 +63,13 @@ static esp_err_t api_relay_name_handler(httpd_req_t *req)
     int id = id_json->valueint;
     if (id < 1 || id > HW_RELAY_COUNT) {
         cJSON_Delete(body);
-        return web_json_error(req, 400, "relay id must be 1-6");
+        char msg[48];
+        snprintf(msg, sizeof(msg), "relay id must be 1-%d", HW_RELAY_COUNT);
+        return web_json_error(req, 400, msg);
     }
 
     app_config_t *cfg = web_get_config();
+    config_lock();
     if (name_json && cJSON_IsString(name_json)) {
         strncpy(cfg->relay_names[id - 1], name_json->valuestring, CFG_RELAY_NAME_LEN - 1);
         cfg->relay_names[id - 1][CFG_RELAY_NAME_LEN - 1] = '\0';
@@ -70,6 +77,7 @@ static esp_err_t api_relay_name_handler(httpd_req_t *req)
         /* No name or null — clear it */
         cfg->relay_names[id - 1][0] = '\0';
     }
+    config_unlock();
 
     cJSON_Delete(body);
     return web_json_ok(req, NULL);
