@@ -237,3 +237,7 @@ Each component under `components/` has its own `CMakeLists.txt`, `include/` dire
 - Implement a reset button to recover from EMERGENCY fault state without needing to power cycle
 - Build out the web dashboard UI (the current index.html is a minimal placeholder)
 - Add authentication to the REST API write endpoints
+
+### BUGS
+- Thuroughly test wifi. Seems like I've noticed the device forgetting creds
+- If PTT changes to quickly, especially if less than the delay time on a seq, state can get confused
