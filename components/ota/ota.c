@@ -218,10 +218,90 @@ static esp_err_t build_url(const char *target, const char *filename,
 
 #define SPIFFS_BUF_SIZE 1024
 
+/* Context passed through esp_http_client event handler for SPIFFS writes */
+typedef struct {
+    const esp_partition_t *part;
+    size_t offset;
+    esp_err_t write_err;
+    bool erased;
+    int content_length;
+    int last_progress;
+} spiffs_ota_ctx_t;
+
+static esp_err_t spiffs_http_event(esp_http_client_event_t *evt)
+{
+    spiffs_ota_ctx_t *ctx = (spiffs_ota_ctx_t *)evt->user_data;
+
+    if (evt->event_id != HTTP_EVENT_ON_DATA || !ctx)
+        return ESP_OK;
+
+    /* Only write data from the final 200 response, not redirect bodies */
+    int status = esp_http_client_get_status_code(evt->client);
+    if (status != 200)
+        return ESP_OK;
+
+    /* Abort early if a previous write already failed */
+    if (ctx->write_err != ESP_OK)
+        return ESP_OK;
+
+    /* Erase partition on first data chunk */
+    if (!ctx->erased) {
+        ctx->content_length = esp_http_client_get_content_length(evt->client);
+        if (ctx->content_length > 0 && (size_t)ctx->content_length > ctx->part->size) {
+            printf("Error: SPIFFS image (%d bytes) exceeds partition (%lu bytes)\n",
+                   ctx->content_length, (unsigned long)ctx->part->size);
+            ctx->write_err = ESP_ERR_INVALID_SIZE;
+            return ESP_OK;
+        }
+        printf("Updating SPIFFS filesystem...\n");
+        if (ctx->content_length > 0) {
+            printf("  Image size: %d bytes, partition size: %lu bytes\n",
+                   ctx->content_length, (unsigned long)ctx->part->size);
+        }
+        ctx->write_err = esp_partition_erase_range(ctx->part, 0, ctx->part->size);
+        if (ctx->write_err != ESP_OK) {
+            ESP_LOGE("ota", "Partition erase failed: %s",
+                     esp_err_to_name(ctx->write_err));
+            return ESP_OK;
+        }
+        ctx->erased = true;
+    }
+
+    /* Bounds check */
+    if (ctx->offset + evt->data_len > ctx->part->size) {
+        printf("Error: SPIFFS image exceeds partition size\n");
+        ctx->write_err = ESP_ERR_INVALID_SIZE;
+        return ESP_OK;
+    }
+
+    /* Write chunk to partition */
+    ctx->write_err = esp_partition_write(ctx->part, ctx->offset,
+                                         evt->data, evt->data_len);
+    if (ctx->write_err != ESP_OK) {
+        ESP_LOGE("ota", "Partition write failed at offset %u: %s",
+                 (unsigned)ctx->offset, esp_err_to_name(ctx->write_err));
+        return ESP_OK;
+    }
+
+    ctx->offset += evt->data_len;
+
+    /* Progress */
+    if (ctx->content_length > 0) {
+        int progress = (int)((ctx->offset * 100) / ctx->content_length);
+        if (progress / 10 != ctx->last_progress / 10) {
+            printf("  SPIFFS: %d%% (%u / %d bytes)\n",
+                   progress, (unsigned)ctx->offset, ctx->content_length);
+            ctx->last_progress = progress;
+        }
+    }
+
+    return ESP_OK;
+}
+
 /**
  * Download and write a SPIFFS image to the storage partition.
- * Returns ESP_OK on success, ESP_ERR_NOT_FOUND if the server returns 404
- * (no spiffs.bin in this release), or another error on failure.
+ * Uses esp_http_client_perform() which follows redirects automatically —
+ * necessary because GitHub releases redirect twice (latest → tag → CDN).
  */
 static esp_err_t ota_update_spiffs(const char *url)
 {
@@ -238,123 +318,59 @@ static esp_err_t ota_update_spiffs(const char *url)
     /* Unmount SPIFFS in case it was mounted outside the web server */
     esp_vfs_spiffs_unregister("storage");
 
-    esp_http_client_config_t http_cfg = {
+    spiffs_ota_ctx_t ctx = {
+        .part = part,
+        .offset = 0,
+        .write_err = ESP_OK,
+        .erased = false,
+        .content_length = 0,
+        .last_progress = -1,
+    };
+
+    esp_http_client_config_t cfg = {
         .url = url,
         .crt_bundle_attach = esp_crt_bundle_attach,
         .timeout_ms = OTA_RECV_TIMEOUT,
         .buffer_size = SPIFFS_BUF_SIZE,
-        .buffer_size_tx = 512,
+        .buffer_size_tx = 1024,
+        .event_handler = spiffs_http_event,
+        .user_data = &ctx,
+        .max_redirection_count = 10,
     };
 
-    esp_http_client_handle_t client = esp_http_client_init(&http_cfg);
+    esp_http_client_handle_t client = esp_http_client_init(&cfg);
     if (!client) {
         ESP_LOGE(TAG, "Failed to init HTTP client for SPIFFS");
         return ESP_FAIL;
     }
 
-    esp_err_t err = esp_http_client_open(client, 0);
+    esp_err_t err = esp_http_client_perform(client);
+    int status = esp_http_client_get_status_code(client);
+    esp_http_client_cleanup(client);
+
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "HTTP open failed: %s", esp_err_to_name(err));
-        esp_http_client_cleanup(client);
+        printf("Error: SPIFFS download failed: %s\n", esp_err_to_name(err));
         return err;
     }
 
-    int content_length = esp_http_client_fetch_headers(client);
-    int status = esp_http_client_get_status_code(client);
-
     if (status == 404) {
         ESP_LOGI(TAG, "No SPIFFS image in release (404) — skipping filesystem update");
-        esp_http_client_close(client);
-        esp_http_client_cleanup(client);
         return ESP_ERR_NOT_FOUND;
     }
 
     if (status != 200) {
-        ESP_LOGE(TAG, "SPIFFS download HTTP %d", status);
-        esp_http_client_close(client);
-        esp_http_client_cleanup(client);
+        printf("Error: SPIFFS download HTTP %d\n", status);
         return ESP_FAIL;
     }
 
-    /* Check image fits in partition */
-    if (content_length > 0 && (size_t)content_length > part->size) {
-        printf("Error: SPIFFS image (%d bytes) exceeds partition size (%lu bytes)\n",
-               content_length, (unsigned long)part->size);
-        esp_http_client_close(client);
-        esp_http_client_cleanup(client);
-        return ESP_ERR_INVALID_SIZE;
+    if (ctx.write_err != ESP_OK) {
+        printf("Error: SPIFFS partition write failed: %s\n",
+               esp_err_to_name(ctx.write_err));
+        return ctx.write_err;
     }
 
-    printf("Updating SPIFFS filesystem...\n");
-    if (content_length > 0) {
-        printf("  Image size: %d bytes, partition size: %lu bytes\n",
-               content_length, (unsigned long)part->size);
-    }
-
-    /* Erase the partition */
-    err = esp_partition_erase_range(part, 0, part->size);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Partition erase failed: %s", esp_err_to_name(err));
-        esp_http_client_close(client);
-        esp_http_client_cleanup(client);
-        return err;
-    }
-
-    /* Stream and write */
-    char *buf = malloc(SPIFFS_BUF_SIZE);
-    if (!buf) {
-        esp_http_client_close(client);
-        esp_http_client_cleanup(client);
-        return ESP_ERR_NO_MEM;
-    }
-
-    size_t offset = 0;
-    int last_progress = -1;
-
-    while (1) {
-        int read_len = esp_http_client_read(client, buf, SPIFFS_BUF_SIZE);
-        if (read_len < 0) {
-            ESP_LOGE(TAG, "SPIFFS download read error");
-            err = ESP_FAIL;
-            break;
-        }
-        if (read_len == 0) {
-            break; /* download complete */
-        }
-
-        if (offset + read_len > part->size) {
-            printf("Error: SPIFFS image exceeds partition size\n");
-            err = ESP_ERR_INVALID_SIZE;
-            break;
-        }
-
-        err = esp_partition_write(part, offset, buf, read_len);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Partition write failed at offset %u: %s",
-                     (unsigned)offset, esp_err_to_name(err));
-            break;
-        }
-
-        offset += read_len;
-
-        if (content_length > 0) {
-            int progress = (int)((offset * 100) / content_length);
-            if (progress / 10 != last_progress / 10) {
-                printf("  SPIFFS: %d%% (%u / %d bytes)\n",
-                       progress, (unsigned)offset, content_length);
-                last_progress = progress;
-            }
-        }
-    }
-
-    free(buf);
-    esp_http_client_close(client);
-    esp_http_client_cleanup(client);
-
-    if (err == ESP_OK) {
-        printf("  SPIFFS update complete (%u bytes written)\n", (unsigned)offset);
-    }
-    return err;
+    printf("  SPIFFS update complete (%u bytes written)\n", (unsigned)ctx.offset);
+    return ESP_OK;
 }
 
 /* ---- OTA update --------------------------------------------------------- */
