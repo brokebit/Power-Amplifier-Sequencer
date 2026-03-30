@@ -6,13 +6,6 @@
 
 static const char *TAG = "cli";
 
-static app_config_t *s_cfg;
-
-app_config_t *cli_get_config(void)
-{
-    return s_cfg;
-}
-
 /* Forward declarations — each cmd_*.c file provides a register function */
 void cli_register_cmd_status(void);
 void cli_register_cmd_system(void);
@@ -26,10 +19,8 @@ void cli_register_cmd_monitor(void);
 void cli_register_cmd_wifi(void);
 void cli_register_cmd_ota(void);
 
-esp_err_t cli_init(app_config_t *cfg)
+esp_err_t cli_init(void)
 {
-    s_cfg = cfg;
-
     esp_console_repl_t *repl = NULL;
     esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
     repl_config.prompt = "seq> ";

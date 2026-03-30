@@ -1,9 +1,6 @@
 #include "esp_http_server.h"
 
 #include "cJSON.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-
 #include "sequencer.h"
 
 #include "web_json.h"
@@ -45,14 +42,7 @@ static esp_err_t api_fault_inject_handler(httpd_req_t *req)
     }
     cJSON_Delete(body);
 
-    seq_event_t ev = {
-        .type = (fault == SEQ_FAULT_EMERGENCY)
-                    ? SEQ_EVENT_EMERGENCY_PA_OFF
-                    : SEQ_EVENT_FAULT,
-        .data = (uint32_t)fault,
-    };
-    xQueueSend(sequencer_get_event_queue(), &ev, 0);
-
+    sequencer_inject_fault(fault);
     return web_json_ok(req, NULL);
 }
 

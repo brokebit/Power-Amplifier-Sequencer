@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "esp_err.h"
@@ -14,9 +15,10 @@
 extern "C" {
 #endif
 
-#define SEQ_MAX_STEPS    8      /* Max relay steps per TX or RX sequence */
-#define SEQ_MAX_DELAY_MS 10000  /* Max delay between sequence steps (ms) */
-#define CFG_RELAY_NAME_LEN 16   /* Max relay name length including null terminator */
+#define SEQ_MAX_STEPS       8      /* Max relay steps per TX or RX sequence */
+#define SEQ_MAX_DELAY_MS    10000  /* Max delay between sequence steps (ms) */
+#define CFG_RELAY_NAME_LEN  16     /* Max relay name length including null terminator */
+#define CONFIG_MAX_APPLY_CBS 4     /* Max config_apply() callbacks */
 
 /* NVS namespace and blob key */
 #define CFG_NVS_NAMESPACE "seq_cfg"
@@ -72,21 +74,21 @@ typedef struct {
  * --------------------------------------------------------- */
 
 /**
- * Initialise NVS and load config into *cfg.
- * If no saved config exists, writes defaults and returns them.
- * Must be called once before config_save() or config_get().
+ * Initialise NVS and load config into the internal draft.
+ * If no saved config exists, writes defaults.
+ * Must be called once before any other config function.
  */
-esp_err_t config_init(app_config_t *cfg);
+esp_err_t config_init(void);
 
 /**
- * Write *cfg to NVS.
+ * Write the draft config to NVS.
  */
-esp_err_t config_save(const app_config_t *cfg);
+esp_err_t config_save(void);
 
 /**
- * Fill *cfg with factory defaults without touching NVS.
+ * Reset the draft to factory defaults without touching NVS.
  */
-void config_defaults(app_config_t *cfg);
+void config_defaults(void);
 
 /**
  * Format relay label into buf. Returns buf.
@@ -117,8 +119,65 @@ void config_unlock(void);
  *             fwd_cal, ref_cal, therm_beta, therm_r0, therm_rseries,
  *             pa_relay
  */
-esp_err_t config_set_by_key(app_config_t *cfg, const char *key,
-                            const char *value_str, char *err_msg, size_t err_len);
+esp_err_t config_set_by_key(const char *key, const char *value_str,
+                            char *err_msg, size_t err_len);
+
+/* ---------------------------------------------------------
+ * Snapshot & service functions (Phase 1 — additive)
+ * --------------------------------------------------------- */
+
+/**
+ * Locked copy of the draft config.  All read paths should use this
+ * rather than accessing the shared struct through a raw pointer.
+ */
+void config_snapshot(app_config_t *out);
+
+/**
+ * Set a relay display name.  Validates relay ID (1–HW_RELAY_COUNT) and
+ * name length (< CFG_RELAY_NAME_LEN).  NULL or empty name clears the alias.
+ * Locks internally.
+ */
+esp_err_t config_set_relay_name(uint8_t relay_id, const char *name,
+                                char *err_msg, size_t err_len);
+
+/**
+ * Write a complete sequence (TX or RX).  Validates count (1–SEQ_MAX_STEPS)
+ * and each step (relay ID 1–HW_RELAY_COUNT, state 0/1, delay 0–SEQ_MAX_DELAY_MS).
+ * Locks internally.
+ */
+esp_err_t config_set_sequence(bool is_tx, const seq_step_t *steps, uint8_t count,
+                              char *err_msg, size_t err_len);
+
+/**
+ * Callback invoked by config_apply().  Must not return ESP_OK until the
+ * consumer has actually committed the config — this is what makes
+ * config_pending_apply() reliable.
+ *
+ * Failable callbacks must be registered before infallible ones to
+ * preserve all-or-nothing semantics.
+ */
+typedef esp_err_t (*config_apply_cb_t)(const app_config_t *cfg);
+
+/**
+ * Register a callback invoked by config_apply().  Callbacks run in
+ * registration order; first failure stops the chain.  Max CONFIG_MAX_APPLY_CBS.
+ * Idempotent — registering the same function pointer again is a no-op.
+ * Returns ESP_ERR_NO_MEM on overflow, ESP_ERR_INVALID_ARG on NULL.
+ */
+esp_err_t config_register_apply_cb(config_apply_cb_t cb);
+
+/**
+ * Push the draft to all live consumers (sequencer, monitor).
+ * Synchronous: does not return ESP_OK until every consumer has committed.
+ * Returns the first callback error on failure; draft remains pending.
+ */
+esp_err_t config_apply(void);
+
+/**
+ * True when the draft config differs from the last successfully applied
+ * config.  At boot, draft and last-applied are identical (returns false).
+ */
+bool config_pending_apply(void);
 
 #ifdef __cplusplus
 }

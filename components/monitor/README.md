@@ -21,7 +21,7 @@ Both ADS1115 chips are initialised with PGA +/-4.096 V. Only chip 1 (0x49) is ac
 
 ### Configuration (`app_config_t` fields consumed)
 
-The monitor copies the full `app_config_t` at init and on runtime updates via `monitor_update_config()`. The fields it uses:
+At init, the monitor snapshots the full `app_config_t` via `config_snapshot()`. Runtime updates arrive automatically through the registered `config_register_apply_cb()` callback, which writes to the module-level copy under a spinlock. The task takes a local snapshot of this copy at the start of each ADC cycle. The fields consumed:
 
 | Field                       | Purpose                                          | Default  |
 |-----------------------------|--------------------------------------------------|----------|
@@ -36,7 +36,8 @@ The monitor copies the full `app_config_t` at init and on runtime updates via `m
 
 ### Internal State
 
-- **`s_cfg`** (`app_config_t`) -- Local copy of configuration, updated atomically via `memcpy`.
+- **`s_cfg`** (`app_config_t`) -- Module-level copy of configuration, updated under `s_cfg_mux` spinlock.
+- **`s_cfg_mux`** (`portMUX_TYPE`) -- Spinlock protecting reads and writes to `s_cfg`. Used by `monitor_update_config()` (writer) and the task loop (reader) to ensure the task always sees a consistent configuration snapshot.
 - **`s_bus`** (`i2c_master_bus_handle_t`) -- The I2C master bus, owned and created by monitor.
 - **`s_chip[2]`** (`ads1115_handle_t`) -- Handles for both ADS1115 devices. Index 0 = 0x48 (reserved), index 1 = 0x49 (active).
 - **`s_adc_queue`** (`QueueHandle_t`) -- FreeRTOS queue (depth 8) carrying chip-index bytes from the ALERT/RDY ISR. Used to synchronise single-shot conversions.
@@ -88,18 +89,19 @@ Returns NAN if the voltage is at the rail (open/short circuit NTC), which suppre
 ### Normal Monitoring Cycle
 
 ```
-1. monitor_task acquires s_adc_mutex
-2. For each channel (AIN0..AIN3):
+1. monitor_task snapshots s_cfg into a local app_config_t under s_cfg_mux spinlock
+2. monitor_task acquires s_adc_mutex
+3. For each channel (AIN0..AIN3):
    a. Drain stale ALERT events from s_adc_queue
    b. Trigger single-shot conversion via I2C
    c. Block on s_adc_queue (250 ms timeout) waiting for ALERT/RDY ISR
    d. Read raw ADC value via I2C, convert to voltage
-3. Compute power, SWR, temperatures from voltages
-4. Publish to system_state after power readings, then after each temp
-5. Check each value against its fault threshold
-6. Release s_adc_mutex
-7. vTaskDelay(10 ms) -- yield window for external ADC callers
-8. Repeat
+4. Compute power, SWR, temperatures from voltages using the local config snapshot
+5. Publish to system_state after power readings, then after each temp
+6. Check each value against its fault threshold (from the local snapshot)
+7. Release s_adc_mutex
+8. vTaskDelay(10 ms) -- yield window for external ADC callers
+9. Repeat
 ```
 
 ### Fault Detection
@@ -125,7 +127,11 @@ Three fault types can be raised:
 
 - **System state updated incrementally.** `system_state_set_sensors()` is called after power readings and then again after each temperature reading, rather than once at the end. This means consumers see partial updates mid-cycle, but it ensures power/SWR data is available as early as possible -- important for the sequencer's fault response latency.
 
-- **Config update is a plain memcpy.** `monitor_update_config()` copies the entire `app_config_t` without locking. This is safe because the monitor task only reads `s_cfg` during its sweep while holding the ADC mutex, and the config update is atomic at the word level on the ESP32-S3 (Xtensa). If more fields are added or config becomes larger, this may need a dedicated lock.
+- **Spinlock-protected config with per-cycle snapshots.** `monitor_update_config()` writes to `s_cfg` under a `portMUX_TYPE` spinlock (`s_cfg_mux`), and the task loop reads `s_cfg` under the same spinlock into a stack-local `app_config_t` at the top of each ADC cycle. This guarantees the entire four-channel sweep uses a single consistent set of thresholds and calibration values, even if a config update arrives mid-cycle. The spinlock is lightweight (critical section, no context switch) and held only for the duration of a `memcpy`.
+
+- **Self-registering config callback.** During `monitor_init()`, the monitor registers `monitor_update_config` as a config apply callback via `config_register_apply_cb()`. This decouples the monitor from the config component's apply workflow -- the monitor does not need to be explicitly called by whoever triggers a config apply; the config component invokes it automatically.
+
+- **Parameterless init with internal config snapshot.** `monitor_init()` takes no arguments. It calls `config_snapshot(&s_cfg)` to populate its initial config from the global config state. This eliminates the need for callers to pass a config pointer, reducing coupling between the init call-site and the config component.
 
 - **Chip 0 initialised but unused.** The second ADS1115 at address 0x48 is initialised at startup with its ALERT GPIO configured as input-with-pullup but no ISR. This reserves the hardware path for future expansion without requiring a firmware change to the init sequence.
 
@@ -145,13 +151,16 @@ Three fault types can be raised:
 
 ```c
 // Initialise I2C bus, both ADS1115 chips, ALERT GPIO ISRs.
-// Must be called after sequencer_init().
-esp_err_t monitor_init(const app_config_t *cfg);
+// Snapshots config internally and registers as a config apply callback.
+// Must be called after config_init() and sequencer_init().
+esp_err_t monitor_init(void);
 
 // FreeRTOS task entry point. Stack: 4096, Priority: 7.
 void monitor_task(void *arg);
 
-// Hot-reload calibration and thresholds. Safe from any task.
+// Update config (thresholds, calibration, thermistor params).
+// Called automatically by the config apply callback mechanism.
+// Also safe to call directly from any task.
 esp_err_t monitor_update_config(const app_config_t *cfg);
 
 // Ad-hoc single-channel read (blocking, mutex-protected, 1s timeout).
@@ -160,7 +169,9 @@ esp_err_t monitor_read_channel(ads1115_channel_t ch, float *out_voltage);
 
 ## Usage Notes
 
-- **Init ordering matters.** `monitor_init()` must be called after `sequencer_init()` because it uses `sequencer_get_event_queue()` at runtime (during fault injection). The queue handle is fetched on each fault, not cached at init, so the sequencer just needs to be initialised before the monitor task starts running.
+- **Init ordering matters.** `monitor_init()` must be called after both `config_init()` and `sequencer_init()`. It depends on `config_init()` because it calls `config_snapshot()` and `config_register_apply_cb()` during init. It depends on `sequencer_init()` because it uses `sequencer_get_event_queue()` at runtime (during fault injection). The sequencer queue handle is fetched on each fault, not cached at init, so the sequencer just needs to be initialised before the monitor task starts running.
+
+- **Config updates are automatic.** After init, the monitor receives config changes automatically via its registered apply callback. Callers do not need to explicitly call `monitor_update_config()` when config is applied through the normal config workflow -- the config component handles dispatch.
 
 - **Cycle time is approximately 500 ms.** Four channels at 8 SPS (125 ms per conversion) plus I2C overhead and the 10 ms yield delay. This is not configurable at runtime.
 

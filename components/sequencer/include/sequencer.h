@@ -40,7 +40,8 @@ typedef enum
     SEQ_EVENT_PTT_ASSERT,      /* PTT line went active (low) */
     SEQ_EVENT_PTT_RELEASE,     /* PTT line released (high) */
     SEQ_EVENT_FAULT,           /* Fault detected; data = seq_fault_t */
-    SEQ_EVENT_EMERGENCY_PA_OFF /* Emergency button pressed */
+    SEQ_EVENT_EMERGENCY_PA_OFF, /* Emergency button pressed */
+    SEQ_EVENT_CONFIG_UPDATE     /* Config apply — handled only in RX state */
 } seq_event_type_t;
 
 typedef struct
@@ -66,10 +67,10 @@ typedef enum
  * --------------------------------------------------------- */
 
 /**
- * Initialise the sequencer: creates the event queue, copies config.
- * Call before starting sequencer_task or any producer (ptt, buttons).
+ * Initialise the sequencer: creates the event queue, snapshots config.
+ * Call after config_init() and before starting sequencer_task or any producer.
  */
-esp_err_t sequencer_init(const app_config_t *cfg);
+esp_err_t sequencer_init(void);
 
 /**
  * FreeRTOS task entry point. Register with xTaskCreate at priority 10,
@@ -108,10 +109,11 @@ seq_fault_t sequencer_get_fault(void);
 esp_err_t sequencer_update_config(const app_config_t *cfg);
 
 /**
- * Return true if the sequencer's private config matches the provided config.
- * Used to detect whether an apply is needed after in-memory edits.
+ * Queue a fault event.  Builds the event struct and sends to the
+ * sequencer queue.  Replaces duplicated logic in CLI and web handlers.
+ * Returns ESP_FAIL if the queue is full.
  */
-bool sequencer_config_matches(const app_config_t *cfg);
+esp_err_t sequencer_inject_fault(seq_fault_t fault);
 
 /* ---------------------------------------------------------
  * Enum ↔ string helpers — single source of truth for names

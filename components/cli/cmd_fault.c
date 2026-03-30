@@ -4,9 +4,6 @@
 #include "esp_console.h"
 #include "esp_err.h"
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-
 #include "sequencer.h"
 
 static int cmd_fault_handler(int argc, char **argv)
@@ -47,13 +44,7 @@ static int cmd_fault_handler(int argc, char **argv)
             return 1;
         }
 
-        seq_event_t ev = {
-            .type = (fault == SEQ_FAULT_EMERGENCY)
-                        ? SEQ_EVENT_EMERGENCY_PA_OFF
-                        : SEQ_EVENT_FAULT,
-            .data = (uint32_t)fault,
-        };
-        xQueueSend(sequencer_get_event_queue(), &ev, 0);
+        sequencer_inject_fault(fault);
         printf("Injected fault: %s\n", seq_fault_name(fault));
         return 0;
     }

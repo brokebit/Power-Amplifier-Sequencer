@@ -10,12 +10,6 @@
 static const char *TAG = "web_server";
 
 static httpd_handle_t s_server = NULL;
-static app_config_t *s_cfg = NULL;
-
-app_config_t *web_get_config(void)
-{
-    return s_cfg;
-}
 
 /* ---- Forward declarations for api_*.c register functions ---------------- */
 void web_register_api_state(httpd_handle_t server);
@@ -65,10 +59,8 @@ static const httpd_uri_t ws_uri = {
 
 /* ---- public API --------------------------------------------------------- */
 
-esp_err_t web_server_init(app_config_t *cfg)
+esp_err_t web_server_init(void)
 {
-    s_cfg = cfg;
-
     /* Mount SPIFFS — non-fatal if it fails */
     mount_spiffs();
 

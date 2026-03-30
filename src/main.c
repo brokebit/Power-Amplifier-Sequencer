@@ -18,14 +18,13 @@ static const char *TAG = "main";
 void app_main(void)
 {
     /* --- load config from NVS (writes defaults on first boot) --- */
-    static app_config_t cfg;
-    ESP_ERROR_CHECK(config_init(&cfg));
+    ESP_ERROR_CHECK(config_init());
 
     /* --- relays: configure GPIO outputs before sequencer drives them --- */
     ESP_ERROR_CHECK(relays_init());
 
     /* --- sequencer: creates the event queue --- */
-    ESP_ERROR_CHECK(sequencer_init(&cfg));
+    ESP_ERROR_CHECK(sequencer_init());
 
     /* --- PTT: installs gpio_isr_service, arms PTT interrupt --- */
     ESP_ERROR_CHECK(ptt_init());
@@ -34,7 +33,7 @@ void app_main(void)
     ESP_ERROR_CHECK(buttons_init());
 
     /* --- monitor: I2C bus, both ADS1115s, ALERT/RDY ISRs --- */
-    ESP_ERROR_CHECK(monitor_init(&cfg));
+    ESP_ERROR_CHECK(monitor_init());
 
     /* --- WiFi: STA mode, auto-connects if credentials saved --- */
     ESP_ERROR_CHECK(app_wifi_init());
@@ -46,11 +45,11 @@ void app_main(void)
     ESP_LOGI(TAG, "all components initialised");
 
     /* --- CLI REPL on UART0 (runs as its own task) --- */
-    ESP_ERROR_CHECK(cli_init(&cfg));
+    ESP_ERROR_CHECK(cli_init());
 
     /* --- OTA: validate firmware on first boot after update --- */
     ESP_ERROR_CHECK(app_ota_init());
 
     /* --- HTTP server: REST API, WebSocket, static files --- */
-    ESP_ERROR_CHECK(web_server_init(&cfg));
+    ESP_ERROR_CHECK(web_server_init());
 }

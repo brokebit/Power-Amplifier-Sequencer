@@ -28,6 +28,7 @@ static const char *TAG = "monitor";
 /* ---- module state ------------------------------------------------------- */
 
 static app_config_t s_cfg;
+static portMUX_TYPE s_cfg_mux = portMUX_INITIALIZER_UNLOCKED;
 static i2c_master_bus_handle_t s_bus;
 static ads1115_handle_t s_chip[2];  /* [0]=0x48 reserved, [1]=0x49 active */
 
@@ -116,16 +117,16 @@ esp_err_t monitor_read_channel(ads1115_channel_t ch, float *out_voltage)
 
 esp_err_t monitor_update_config(const app_config_t *cfg)
 {
-    config_lock();
+    portENTER_CRITICAL(&s_cfg_mux);
     memcpy(&s_cfg, cfg, sizeof(s_cfg));
-    config_unlock();
+    portEXIT_CRITICAL(&s_cfg_mux);
     ESP_LOGI(TAG, "Config updated");
     return ESP_OK;
 }
 
-esp_err_t monitor_init(const app_config_t *cfg)
+esp_err_t monitor_init(void)
 {
-    memcpy(&s_cfg, cfg, sizeof(s_cfg));
+    config_snapshot(&s_cfg);
 
     s_adc_queue = xQueueCreate(8, sizeof(uint8_t));
     if (!s_adc_queue) {
@@ -181,6 +182,8 @@ esp_err_t monitor_init(const app_config_t *cfg)
     gpio_config(&io);
     gpio_isr_handler_add(HW_ADS1115_1_ALRT_GPIO, alert1_isr, NULL);
 
+    config_register_apply_cb(monitor_update_config);
+
     ESP_LOGI(TAG, "initialised");
     return ESP_OK;
 }
@@ -227,6 +230,13 @@ void monitor_task(void *arg)
     float last_temp1 = 0.0f, last_temp2 = 0.0f;
 
     for (;;) {
+        /* Snapshot config under spinlock so the entire ADC cycle sees
+         * a consistent set of thresholds and calibration values. */
+        app_config_t cfg;
+        portENTER_CRITICAL(&s_cfg_mux);
+        memcpy(&cfg, &s_cfg, sizeof(cfg));
+        portEXIT_CRITICAL(&s_cfg_mux);
+
         xSemaphoreTake(s_adc_mutex, portMAX_DELAY);
 
         /* ---- Forward + Reflected power ---- */
@@ -234,16 +244,16 @@ void monitor_task(void *arg)
         float ref_v = read_channel(ADS1115_CHANNEL_1);
 
         if (fwd_v >= 0.0f && ref_v >= 0.0f) {
-            last_fwd_w = s_cfg.fwd_power_cal_factor * fwd_v * fwd_v;
-            last_ref_w = s_cfg.ref_power_cal_factor * ref_v * ref_v;
+            last_fwd_w = cfg.fwd_power_cal_factor * fwd_v * fwd_v;
+            last_ref_w = cfg.ref_power_cal_factor * ref_v * ref_v;
             last_swr   = calc_swr(fwd_v, ref_v);
 
             system_state_set_sensors(last_fwd_w, last_ref_w, last_swr,
                                      last_temp1, last_temp2);
 
-            if (last_fwd_w >= MIN_FWD_POWER_FOR_SWR_W && last_swr > s_cfg.swr_fault_threshold) {
+            if (last_fwd_w >= MIN_FWD_POWER_FOR_SWR_W && last_swr > cfg.swr_fault_threshold) {
                 ESP_LOGW(TAG, "high SWR %.1f (threshold %.1f)",
-                         last_swr, s_cfg.swr_fault_threshold);
+                         last_swr, cfg.swr_fault_threshold);
                 inject_fault(SEQ_FAULT_HIGH_SWR);
             }
         }
@@ -251,13 +261,13 @@ void monitor_task(void *arg)
         /* ---- Temperature 1 ---- */
         float t1_v = read_channel(ADS1115_CHANNEL_2);
         if (t1_v > 0.0f) {
-            float temp_c = voltage_to_temp_c(t1_v, &s_cfg);
+            float temp_c = voltage_to_temp_c(t1_v, &cfg);
             last_temp1 = temp_c;
             system_state_set_sensors(last_fwd_w, last_ref_w, last_swr,
                                      last_temp1, last_temp2);
-            if (!isnan(temp_c) && temp_c > s_cfg.temp1_fault_threshold_c) {
+            if (!isnan(temp_c) && temp_c > cfg.temp1_fault_threshold_c) {
                 ESP_LOGW(TAG, "over-temp 1: %.1f°C (threshold %.1f)",
-                         temp_c, s_cfg.temp1_fault_threshold_c);
+                         temp_c, cfg.temp1_fault_threshold_c);
                 inject_fault(SEQ_FAULT_OVER_TEMP1);
             }
         }
@@ -265,13 +275,13 @@ void monitor_task(void *arg)
         /* ---- Temperature 2 ---- */
         float t2_v = read_channel(ADS1115_CHANNEL_3);
         if (t2_v > 0.0f) {
-            float temp_c = voltage_to_temp_c(t2_v, &s_cfg);
+            float temp_c = voltage_to_temp_c(t2_v, &cfg);
             last_temp2 = temp_c;
             system_state_set_sensors(last_fwd_w, last_ref_w, last_swr,
                                      last_temp1, last_temp2);
-            if (!isnan(temp_c) && temp_c > s_cfg.temp2_fault_threshold_c) {
+            if (!isnan(temp_c) && temp_c > cfg.temp2_fault_threshold_c) {
                 ESP_LOGW(TAG, "over-temp 2: %.1f°C (threshold %.1f)",
-                         temp_c, s_cfg.temp2_fault_threshold_c);
+                         temp_c, cfg.temp2_fault_threshold_c);
                 inject_fault(SEQ_FAULT_OVER_TEMP2);
             }
         }

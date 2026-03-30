@@ -4,7 +4,7 @@
 
 The `web_server` component provides an embedded HTTP server for the ESP32-S3 RF PA sequencer. It exposes a JSON REST API for controlling and monitoring the device, a WebSocket endpoint that pushes live state at 2 Hz, and a static file server backed by a SPIFFS partition. Built on `esp_http_server`, it runs on port 80 and is intended to be the primary remote interface for the sequencer alongside the serial CLI.
 
-The component is a pure consumer of the system: it reads shared state from the `system_state` blackboard, reads and writes the `app_config_t` configuration struct owned by `main`, and delegates all real hardware actions to the relevant subsystem APIs (`sequencer`, `relays`, `monitor`, `wifi_sta`, `ota`).
+The component is a pure consumer of the system: it reads shared state from the `system_state` blackboard, reads configuration via `config_snapshot()`, writes configuration through the `config` service functions (`config_set_by_key()`, `config_set_sequence()`, `config_set_relay_name()`), and delegates all real hardware actions to the relevant subsystem APIs (`sequencer`, `relays`, `monitor`, `wifi_sta`, `ota`).
 
 ## Source File Layout
 
@@ -28,9 +28,19 @@ Each `api_*.c` file follows the same pattern: static handler functions plus a `w
 
 ## Key Data Structures
 
-### Configuration pointer
+### Configuration access
 
-`web_server_init(app_config_t *cfg)` receives a pointer to the live configuration struct owned by `main`. This pointer is stored in a file-scoped static (`s_cfg`) and exposed to all API handlers via `web_get_config()`. Handlers read and write config fields in-place. Changes do not take effect on the sequencer until `POST /api/seq/apply` is called, and do not persist to NVS until `POST /api/config/save`.
+`web_server_init()` takes no parameters. There is no shared config pointer or accessor function. All API handlers access configuration through the `config` component's service API:
+
+- **Reads:** `config_snapshot(&snap)` copies the current draft config under the config mutex. Every handler that needs config data (state, config dump, sequences) takes a snapshot rather than holding a raw pointer.
+- **Scalar writes:** `config_set_by_key(key, value, err_msg, err_len)` validates and sets a single field by name.
+- **Sequence writes:** `config_set_sequence(is_tx, steps, count, err_msg, err_len)` replaces an entire TX or RX sequence.
+- **Relay name writes:** `config_set_relay_name(relay_id, name, err_msg, err_len)` sets or clears a relay alias.
+- **Apply:** `config_apply()` pushes the draft to all live consumers (sequencer, monitor) via registered callbacks.
+- **Save:** `config_save()` persists the draft to NVS.
+- **Defaults:** `config_defaults()` resets the draft to factory defaults without touching NVS.
+
+Changes do not take effect on the sequencer until `POST /api/seq/apply` is called (which invokes `config_apply()`), and do not persist to NVS until `POST /api/config/save`.
 
 ### JSON response envelope
 
@@ -47,9 +57,9 @@ This is enforced by the `web_json_ok()` and `web_json_error()` helpers in `web_j
 
 `web_parse_body()` reads the full request body (maximum 2048 bytes), parses it as JSON, and returns a `cJSON*` that the caller must free. On failure it automatically sends a 400 error response and returns `NULL`.
 
-### State snapshot (via system_state)
+### State snapshot (via system_state and config_snapshot)
 
-The `web_build_state_json()` function (in `api_state.c`) takes an atomic snapshot of `system_state_t` via `system_state_get()` and serializes it to JSON. This same function is reused by the WebSocket push task, ensuring REST and WebSocket clients see identical state shapes:
+The `web_build_state_json()` function (in `api_state.c`) takes an atomic snapshot of `system_state_t` via `system_state_get()` and a config snapshot via `config_snapshot()` (for relay names), then serializes both to JSON. This same function is reused by the WebSocket push task, ensuring REST and WebSocket clients see identical state shapes:
 
 ```json
 {
@@ -80,31 +90,31 @@ The `web_build_state_json()` function (in `api_state.c`) takes an atomic snapsho
 
 | Method | URI | Body | Description |
 |---|---|---|---|
-| GET | `/api/config` | -- | Full configuration dump (thresholds, calibration, thermistor params, sequences, relay names) |
-| POST | `/api/config` | `{"key":"swr_threshold","value":3.0}` | Set a single config key. Valid keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `pa_relay`, `fwd_cal`, `ref_cal`, `therm_beta`, `therm_r0`, `therm_rseries` |
-| POST | `/api/config/save` | -- | Persist current config to NVS |
-| POST | `/api/config/defaults` | -- | Reset in-memory config to factory defaults (does not save) |
+| GET | `/api/config` | -- | Full configuration dump via `config_snapshot()` (thresholds, calibration, thermistor params, sequences, relay names, `pending_apply` flag) |
+| POST | `/api/config` | `{"key":"swr_threshold","value":3.0}` | Set a single config key via `config_set_by_key()`. Valid keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `pa_relay`, `fwd_cal`, `ref_cal`, `therm_beta`, `therm_r0`, `therm_rseries` |
+| POST | `/api/config/save` | -- | Persist draft config to NVS via `config_save()` |
+| POST | `/api/config/defaults` | -- | Reset draft config to factory defaults via `config_defaults()` (does not save) |
 
 ### Relay Control
 
 | Method | URI | Body | Description |
 |---|---|---|---|
 | POST | `/api/relay` | `{"id":2,"on":true}` | Set a single relay on/off. `id` is 1-indexed (1--6) |
-| POST | `/api/relay/name` | `{"id":2,"name":"PA"}` | Set or clear (omit `name` or null) a relay's display name |
+| POST | `/api/relay/name` | `{"id":2,"name":"PA"}` | Set or clear (omit `name` or null) a relay's display name via `config_set_relay_name()` |
 
 ### Fault Management
 
 | Method | URI | Body | Description |
 |---|---|---|---|
 | POST | `/api/fault/clear` | -- | Clear active fault and return to RX. Returns 409 if not in FAULT state |
-| POST | `/api/fault/inject` | `{"type":"swr"}` | Inject a fault for testing. Types: `swr`, `temp1`, `temp2`, `emergency` |
+| POST | `/api/fault/inject` | `{"type":"swr"}` | Inject a fault for testing via `sequencer_inject_fault()`. Types: `swr`, `temp1`, `temp2`, `emergency` |
 
 ### Sequencing
 
 | Method | URI | Body | Description |
 |---|---|---|---|
-| POST | `/api/seq` | `{"direction":"tx","steps":[{"relay_id":1,"state":true,"delay_ms":50},...]}`| Replace the TX or RX step sequence in the in-memory config. 1--8 steps allowed |
-| POST | `/api/seq/apply` | -- | Push in-memory config to the sequencer and monitor. Returns 409 if not in RX state |
+| POST | `/api/seq` | `{"direction":"tx","steps":[{"relay_id":1,"state":true,"delay_ms":50},...]}`| Replace the TX or RX step sequence in the draft config via `config_set_sequence()`. 1--8 steps allowed |
+| POST | `/api/seq/apply` | -- | Push draft config to all live consumers via `config_apply()`. Returns 409 if not in RX state or PTT is active |
 
 ### ADC / Sensors
 
@@ -166,7 +176,9 @@ Key implementation details:
 
 - **Flat API file split:** Each API domain (state, config, relay, fault, etc.) lives in its own `api_*.c` file rather than a monolithic handler. This keeps individual files short and makes it easy to add new endpoint groups without touching existing code. All files link against the same `web_json.h` helpers.
 
-- **Config modify-then-apply pattern:** The web API mirrors the CLI's edit/apply/save workflow. `POST /api/config` and `POST /api/seq` modify the in-memory `app_config_t` but do not activate changes on the sequencer. `POST /api/seq/apply` pushes the config live, and `POST /api/config/save` persists to NVS. This prevents partial configuration from being applied mid-edit.
+- **Config modify-then-apply pattern:** The web API mirrors the CLI's edit/apply/save workflow. `POST /api/config` and `POST /api/seq` modify the draft `app_config_t` through the `config` service functions but do not activate changes on the sequencer. `POST /api/seq/apply` calls `config_apply()` to push the draft to all live consumers (sequencer, monitor) via registered callbacks. `POST /api/config/save` persists to NVS. The `GET /api/config` response includes a `pending_apply` boolean (via `config_pending_apply()`) so the UI can indicate when unapplied edits exist. This prevents partial configuration from being applied mid-edit.
+
+- **No shared config pointer:** Unlike earlier versions, the web server does not hold or expose a raw `app_config_t*`. All reads go through `config_snapshot()` (locked copy) and all writes go through validated service functions (`config_set_by_key()`, `config_set_sequence()`, `config_set_relay_name()`). This eliminates the previous coupling where handlers could mutate the config struct without validation or locking.
 
 - **Shared state builder for REST and WebSocket:** `web_build_state_json()` is defined in `api_state.c` and forward-declared in `web_ws.c`. This ensures both the polling REST endpoint and the push WebSocket send identical JSON structures without code duplication.
 
@@ -192,10 +204,10 @@ Key implementation details:
 - `esp_wifi` -- WiFi status queries (private dependency)
 
 ### Internal Project Components
-- `config` -- `app_config_t` struct, `config_save()`, `config_defaults()`, `config_set_by_key()`
+- `config` -- `app_config_t` struct, `config_snapshot()`, `config_save()`, `config_defaults()`, `config_set_by_key()`, `config_set_sequence()`, `config_set_relay_name()`, `config_apply()`, `config_pending_apply()`
 - `system_state` -- `system_state_get()` for atomic state snapshots (blackboard reader)
-- `sequencer` -- `sequencer_clear_fault()`, `sequencer_update_config()`, `sequencer_get_event_queue()`, state/fault enums
-- `monitor` -- `monitor_update_config()`, `monitor_read_channel()`
+- `sequencer` -- `sequencer_clear_fault()`, `sequencer_inject_fault()`, `seq_state_name()`, `seq_fault_name()`, `seq_fault_parse()`, state/fault enums
+- `monitor` -- `monitor_read_channel()`
 - `ads1115` -- ADC channel type enum
 - `relays` -- `relay_set()`
 - `wifi_sta` -- Full WiFi lifecycle (connect, disconnect, scan, credentials, enable)
@@ -204,9 +216,7 @@ Key implementation details:
 
 ## Usage Notes
 
-- **Initialization order:** `web_server_init()` must be called after `app_wifi_init()` since the server needs the network stack to be ready.
-
-- **Config pointer lifetime:** The `app_config_t*` passed to `web_server_init()` must outlive the server. The web server does not copy the struct; all handlers read and write through the pointer.
+- **Initialization order:** `web_server_init()` must be called after `config_init()` and `app_wifi_init()` since the server needs the config subsystem and network stack to be ready.
 
 - **No authentication:** The API has no authentication or authorization. It is designed for use on a trusted local network.
 
@@ -214,7 +224,7 @@ Key implementation details:
 
 - **Relay IDs are 1-indexed:** Consistent with the rest of the project (matching schematic labels), relay IDs in the API are 1--6, not 0--5.
 
-- **Fault injection:** `POST /api/fault/inject` posts events directly to the sequencer's event queue. The `emergency` type sends `SEQ_EVENT_EMERGENCY_PA_OFF` (which immediately de-energises the PA relay), while other types send `SEQ_EVENT_FAULT`.
+- **Fault injection:** `POST /api/fault/inject` calls `sequencer_inject_fault()` with a parsed `seq_fault_t` value. The fault type string is parsed by `seq_fault_parse()`, which accepts `swr`, `temp1`, `temp2`, or `emergency`.
 
 - **WebSocket reconnection:** Clients should implement reconnection logic. If all 3 WebSocket slots are occupied, new connections are silently dropped. Failed sends also remove clients from the tracking list.
 

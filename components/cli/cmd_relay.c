@@ -16,13 +16,14 @@ static void show_relays(void)
 {
     system_state_t ss;
     system_state_get(&ss);
-    const app_config_t *cfg = cli_get_config();
+    app_config_t snap;
+    config_snapshot(&snap);
 
     printf("Relays:");
     for (int i = 0; i < HW_RELAY_COUNT; i++) {
         bool on = (ss.relay_states >> i) & 1;
         char label[24];
-        config_relay_label(cfg, i + 1, label, sizeof(label));
+        config_relay_label(&snap, i + 1, label, sizeof(label));
         printf(" [%s:%s]", label, on ? "ON" : "off");
     }
     printf("\n");
@@ -42,12 +43,13 @@ static int cmd_relay_handler(int argc, char **argv)
     }
 
     if (strcmp(argv[1], "name") == 0) {
-        app_config_t *cfg = cli_get_config();
         if (argc < 3) {
             /* Show all names */
+            app_config_t snap;
+            config_snapshot(&snap);
             for (int i = 0; i < HW_RELAY_COUNT; i++) {
-                if (cfg->relay_names[i][0] != '\0') {
-                    printf("  R%d = %s\n", i + 1, cfg->relay_names[i]);
+                if (snap.relay_names[i][0] != '\0') {
+                    printf("  R%d = %s\n", i + 1, snap.relay_names[i]);
                 } else {
                     printf("  R%d = (none)\n", i + 1);
                 }
@@ -60,22 +62,18 @@ static int cmd_relay_handler(int argc, char **argv)
             printf("Invalid relay: %s (expected 1-%d)\n", argv[2], HW_RELAY_COUNT);
             return 1;
         }
-        if (argc < 4) {
-            /* Clear name */
-            config_lock();
-            cfg->relay_names[id - 1][0] = '\0';
-            config_unlock();
-            printf("R%ld name cleared\n", id);
+        char err_msg[64];
+        const char *name = (argc >= 4) ? argv[3] : NULL;
+        esp_err_t ret = config_set_relay_name((uint8_t)id, name,
+                                              err_msg, sizeof(err_msg));
+        if (ret != ESP_OK) {
+            printf("%s\n", err_msg);
+            return 1;
+        }
+        if (name) {
+            printf("R%ld = %s\n", id, name);
         } else {
-            if (strlen(argv[3]) >= CFG_RELAY_NAME_LEN) {
-                printf("Name too long (max %d chars)\n", CFG_RELAY_NAME_LEN - 1);
-                return 1;
-            }
-            config_lock();
-            strncpy(cfg->relay_names[id - 1], argv[3], CFG_RELAY_NAME_LEN - 1);
-            cfg->relay_names[id - 1][CFG_RELAY_NAME_LEN - 1] = '\0';
-            config_unlock();
-            printf("R%ld = %s\n", id, cfg->relay_names[id - 1]);
+            printf("R%ld name cleared\n", id);
         }
         printf("Use 'config save' to persist\n");
         return 0;
@@ -107,8 +105,10 @@ static int cmd_relay_handler(int argc, char **argv)
     printf("WARNING: Directly controlling relays bypasses the sequencer\n");
     esp_err_t ret = relay_set((uint8_t)relay_id, on);
     if (ret == ESP_OK) {
+        app_config_t snap;
+        config_snapshot(&snap);
         char label[24];
-        config_relay_label(cli_get_config(), (uint8_t)relay_id, label, sizeof(label));
+        config_relay_label(&snap, (uint8_t)relay_id, label, sizeof(label));
         printf("%s %s\n", label, on ? "ON" : "OFF");
     } else {
         printf("Failed: %s\n", esp_err_to_name(ret));

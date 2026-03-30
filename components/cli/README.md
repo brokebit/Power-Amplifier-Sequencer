@@ -4,13 +4,15 @@
 
 The CLI component provides an interactive serial REPL (Read-Eval-Print Loop) over UART0 for the ESP32-S3 RF PA sequencer. It is the primary operator interface during development and bench testing, exposing commands that span the full surface area of the system: live status inspection, relay sequencing, fault management, configuration editing, OTA updates, and WiFi provisioning. The component is built on ESP-IDF's `esp_console` framework and follows a one-file-per-command convention, keeping the registration spine thin and each command module self-contained.
 
+The CLI has no direct ownership of configuration state. All config reads go through `config_snapshot()` (a mutex-protected copy) and all config writes go through dedicated service functions in the `config` component. This decouples the CLI from config storage and makes every command handler stateless with respect to configuration.
+
 ## Architecture
 
 ### File Layout
 
 | File | Registers | Purpose |
 |---|---|---|
-| `cli.c` | -- | Initialization spine: stores config pointer, creates UART REPL, calls all `cli_register_cmd_*()` functions |
+| `cli.c` | -- | Initialization spine: creates UART REPL, calls all `cli_register_cmd_*()` functions |
 | `cmd_status.c` | `status` | One-shot snapshot of full system state |
 | `cmd_system.c` | `version`, `reboot` | Firmware/chip info and device restart |
 | `cmd_log.c` | `log` | Runtime ESP log level control (globally or per-tag) |
@@ -23,15 +25,24 @@ The CLI component provides an interactive serial REPL (Read-Eval-Print Loop) ove
 | `cmd_wifi.c` | `wifi` | Credential management, connect/disconnect, scan, enable/disable |
 | `cmd_ota.c` | `ota` | GitHub-based OTA: status, repo config, update, rollback, validate |
 
+### Public API
+
+The CLI's public interface is a single parameterless init function declared in `include/cli.h`:
+
+```c
+esp_err_t cli_init(void);
+```
+
+There are no other public functions. All configuration access happens through the `config` and `sequencer` component APIs.
+
 ### Initialization Flow
 
-`cli_init()` is called from `app_main()` with a pointer to the live `app_config_t` owned by main. The function:
+`cli_init()` is called from `app_main()` with no arguments. The function:
 
-1. Stores the config pointer in a file-scoped static (`s_cfg`) so command handlers can reach it via `cli_get_config()`.
-2. Creates a UART REPL with prompt `seq> `, a 256-byte command line buffer, and a 16 KB task stack (sized to accommodate TLS handshakes during OTA).
-3. Calls each `cli_register_cmd_*()` function to register commands with `esp_console`.
-4. Suppresses all ESP log output (`esp_log_level_set("*", ESP_LOG_NONE)`) so the interactive prompt stays clean. The user can re-enable logging at runtime via the `log` command.
-5. Starts the REPL task.
+1. Creates a UART REPL with prompt `seq> `, a 256-byte command line buffer, and a 16 KB task stack (sized to accommodate TLS handshakes during OTA).
+2. Calls each `cli_register_cmd_*()` function to register commands with `esp_console`.
+3. Suppresses all ESP log output (`esp_log_level_set("*", ESP_LOG_NONE)`) so the interactive prompt stays clean. The user can re-enable logging at runtime via the `log` command.
+4. Starts the REPL task.
 
 ### Command Pattern
 
@@ -46,13 +57,28 @@ No command uses `argtable3` structured argument parsing -- all commands do manua
 
 ## Key Data Structures
 
-### Config Pointer (`app_config_t *`)
+### Config Access Pattern
 
-The CLI holds a shared mutable pointer to the single `app_config_t` instance owned by `app_main()`. Multiple commands (`config`, `seq`, `relay name`) modify this struct in-place. The edit/apply/save workflow is:
+The CLI does not hold any pointer or reference to the `app_config_t` struct. Instead, command handlers interact with config through service functions provided by the `config` component:
 
-1. **Edit** -- Commands like `config set` or `seq tx set` mutate the in-memory `app_config_t` immediately.
-2. **Apply** -- `seq apply` calls `sequencer_update_config()` and `monitor_update_config()` to push the edited config to live subsystems. This is only permitted when the sequencer is in the RX idle state.
-3. **Save** -- `config save` or `seq save` persists the blob to NVS. Without this step, changes are lost on reboot.
+**Reads** -- any handler that needs config data calls `config_snapshot(&snap)` to obtain a mutex-protected copy of the current draft into a stack-local `app_config_t`. This is used by `cmd_status.c`, `cmd_config.c` (`config show`), `cmd_relay.c` (`relay show`, `relay name`, direct control feedback), and `cmd_seq.c` (`seq tx/rx show`, post-set confirmation).
+
+**Writes** -- handlers never mutate config directly. Each write path calls a specific service function that acquires the config mutex internally:
+
+| Service function | Called by | Purpose |
+|---|---|---|
+| `config_set_by_key(key, val, err, len)` | `cmd_config.c` (`config set`) | Set a scalar config field by string key with type conversion and range validation |
+| `config_set_relay_name(id, name, err, len)` | `cmd_relay.c` (`relay name`) | Set or clear a relay display name |
+| `config_set_sequence(is_tx, steps, n, err, len)` | `cmd_seq.c` (`seq tx/rx set`) | Replace an entire TX or RX relay sequence |
+| `config_apply()` | `cmd_seq.c` (`seq apply`) | Push draft config to live consumers via registered callbacks |
+| `config_save()` | `cmd_config.c`, `cmd_seq.c` | Persist draft config to NVS |
+| `config_defaults()` | `cmd_config.c` (`config defaults`) | Reset draft to factory values without touching NVS |
+
+The edit/apply/save workflow remains three-phase:
+
+1. **Edit** -- Service functions like `config_set_by_key()` or `config_set_sequence()` modify the internal draft. The draft is protected by a mutex; CLI handlers never touch it directly.
+2. **Apply** -- `config_apply()` pushes the draft to all live consumers (sequencer, monitor) through a registered-callback chain. First callback failure stops the chain and returns an error.
+3. **Save** -- `config_save()` persists the draft to NVS. Without this step, changes are lost on reboot.
 
 This three-phase design prevents half-edited config from reaching the sequencer, and avoids NVS wear from exploratory changes.
 
@@ -60,9 +86,9 @@ This three-phase design prevents half-edited config from reaching the sequencer,
 
 Commands `status`, `monitor`, `relay show`, and `wifi status` read an atomic snapshot of the system via `system_state_get()`. The snapshot includes PTT state, sequencer FSM state/fault, relay bitmask, sensor readings (power, SWR, temperatures), and WiFi connection info. The CLI is a pure consumer -- it never writes to the blackboard.
 
-### Sequencer Events (`seq_event_t`)
+### Fault Injection
 
-Only `cmd_fault.c` writes to the sequencer event queue (via `xQueueSend` to `sequencer_get_event_queue()`). This is used exclusively for fault injection during testing.
+`cmd_fault.c` uses `sequencer_inject_fault(fault)` to post faults into the sequencer FSM. This is a dedicated API that encapsulates event queue access -- the CLI does not interact with event queues directly. The fault type is parsed from user input via `seq_fault_parse()`, which validates the string and returns the corresponding `seq_fault_t` enum value.
 
 ## Command Reference
 
@@ -70,7 +96,7 @@ Only `cmd_fault.c` writes to the sequencer event queue (via `xQueueSend` to `seq
 ```
 status
 ```
-Prints a single-line summary of PTT, sequencer state, fault status, relay states (with configured names), power/SWR readings, temperatures, and WiFi connectivity.
+Prints a multi-line summary of PTT, sequencer state, fault status, relay states (with configured names via `config_relay_label()`), power/SWR readings, temperatures, and WiFi connectivity.
 
 ### version / reboot
 ```
@@ -92,10 +118,10 @@ config set <key> <value>
 config save
 config defaults
 ```
-- `show` prints the full `app_config_t` contents (thresholds, calibration, thermistor params, relay names, TX/RX sequences).
+- `show` takes a `config_snapshot()` and prints the full `app_config_t` contents (thresholds, calibration, thermistor params, relay names, TX/RX sequences).
 - `set` delegates to `config_set_by_key()` which handles string-to-float/int conversion and range validation. Valid keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `fwd_cal`, `ref_cal`, `therm_beta`, `therm_r0`, `therm_rseries`, `pa_relay`.
-- `save` persists to NVS.
-- `defaults` resets the in-memory struct to factory values without touching NVS. Requires explicit `config save` to persist.
+- `save` calls `config_save()` to persist to NVS.
+- `defaults` calls `config_defaults()` to reset the in-memory draft to factory values without touching NVS. Requires explicit `config save` to persist.
 
 ### relay
 ```
@@ -104,9 +130,9 @@ relay <1-6> <on|off>
 relay name
 relay name <1-6> [label]
 ```
-- `show` reads the system state bitmask and displays each relay's state with its configured label.
-- Direct on/off control bypasses the sequencer and prints a warning. Useful for bench testing but dangerous during live operation.
-- `relay name` manages user-friendly relay labels (max 15 chars). Labels appear throughout the CLI wherever relay IDs are displayed. Omitting the label clears the name.
+- `show` reads the system state bitmask and a `config_snapshot()`, displaying each relay's state with its configured label.
+- Direct on/off control bypasses the sequencer via `relay_set()` and prints a warning. Useful for bench testing but dangerous during live operation.
+- `relay name` calls `config_set_relay_name()` to manage user-friendly relay labels (max 15 chars). Labels appear throughout the CLI wherever relay IDs are displayed. Omitting the label clears the name.
 
 ### fault
 ```
@@ -114,9 +140,9 @@ fault show
 fault clear
 fault inject <swr|temp1|temp2|emergency>
 ```
-- `show` prints the current sequencer state and fault code.
+- `show` queries `sequencer_get_state()` and `sequencer_get_fault()` to print the current sequencer state and fault code.
 - `clear` calls `sequencer_clear_fault()` to return from FAULT to RX. Fails if not in FAULT state.
-- `inject` posts a `SEQ_EVENT_FAULT` (or `SEQ_EVENT_EMERGENCY_PA_OFF` for emergency) directly to the sequencer event queue. This is a testing/debugging tool.
+- `inject` parses the fault type via `seq_fault_parse()`, then calls `sequencer_inject_fault()` to post the fault into the sequencer FSM. This is a testing/debugging tool.
 
 ### seq
 ```
@@ -129,7 +155,7 @@ seq save
 ```
 The sequence editor. Steps are specified in a compact token format, e.g., `R3:on:50` means "turn relay 3 ON, then wait 50 ms." Up to 8 steps per sequence (`SEQ_MAX_STEPS`). Relay IDs are 1-indexed and delays are capped at 10,000 ms.
 
-`set` writes steps into the in-memory config. `apply` pushes to the live sequencer (only when in RX state). `save` persists to NVS. This three-step workflow is the core edit/apply/save pattern.
+`set` calls `config_set_sequence()` to write steps into the config draft. `apply` calls `config_apply()` to push the draft to live consumers through the registered callback chain. `save` calls `config_save()` to persist to NVS. This three-step workflow is the core edit/apply/save pattern.
 
 ### adc
 ```
@@ -175,21 +201,29 @@ GitHub Releases-based OTA. `repo` configures/displays the GitHub repository. `up
 - `esp_app_format` -- firmware version metadata
 
 ### Internal Components
-- `config` -- `app_config_t` type, NVS load/save, `config_set_by_key()`
-- `sequencer` -- FSM state queries, fault clear, event queue access, config update
-- `monitor` -- ADC channel reads, config update
-- `ads1115` -- Channel enum types
-- `system_state` -- Atomic state snapshot reads
-- `hw_config` -- `HW_RELAY_COUNT` constant
-- `relays` -- Direct relay set for bench testing
-- `wifi_sta` -- Credential management, connect/disconnect, scan
+- `config` -- `app_config_t` type, `config_snapshot()`, `config_set_by_key()`, `config_set_relay_name()`, `config_set_sequence()`, `config_apply()`, `config_save()`, `config_defaults()`, `config_relay_label()`
+- `sequencer` -- FSM state queries (`sequencer_get_state()`, `sequencer_get_fault()`), fault management (`sequencer_clear_fault()`, `sequencer_inject_fault()`), name helpers (`seq_state_name()`, `seq_fault_name()`, `seq_fault_parse()`)
+- `monitor` -- ADC channel reads (`monitor_read_channel()`)
+- `ads1115` -- Channel enum types (`ads1115_channel_t`)
+- `system_state` -- Atomic state snapshot reads (`system_state_get()`)
+- `hw_config` -- `HW_RELAY_COUNT` constant, `SEQ_MAX_STEPS` (via config)
+- `relays` -- Direct relay set for bench testing (`relay_set()`)
+- `wifi_sta` -- Credential management, connect/disconnect, scan, enable/disable
 - `ota` -- Update, rollback, validate, repo management
 
 ## Architecture Decisions
 
-- **Logging suppressed at startup.** The REPL sets `ESP_LOG_NONE` globally to keep the interactive prompt usable. Without this, log output from other FreeRTOS tasks interleaves with the prompt and typed input. The `log` command allows surgical re-enablement per-tag when debugging.
+- **Stateless command handlers with snapshot reads.** Command handlers do not cache or hold references to the config struct. Every read path calls `config_snapshot()` to obtain a stack-local copy. This eliminates shared mutable state between the CLI and other tasks, and means the CLI component has zero file-scoped mutable state related to configuration.
 
-- **Shared mutable config pointer rather than message passing.** The CLI operates on main's `app_config_t` directly rather than going through a queue or accessor API. This simplifies the edit workflow but means config mutations are not inherently thread-safe. In practice, CLI commands execute sequentially on the REPL task, and `seq apply` is the only point where the config crosses a task boundary (via `sequencer_update_config()`, which copies the data).
+- **Service-function writes instead of direct struct mutation.** All config modifications go through dedicated functions (`config_set_by_key`, `config_set_relay_name`, `config_set_sequence`) that lock internally and perform validation. This means the CLI never calls `config_lock()`/`config_unlock()` and cannot produce partially-written config state.
+
+- **Callback-based config_apply().** Rather than the CLI knowing which subsystems consume config (previously it called `sequencer_update_config()` and `monitor_update_config()` directly), `config_apply()` invokes a chain of registered callbacks. The CLI just calls `config_apply()` and gets back success or the first failure. Adding a new config consumer requires no CLI changes.
+
+- **Fault injection via sequencer_inject_fault().** The CLI no longer accesses the sequencer event queue directly. `sequencer_inject_fault()` encapsulates the event construction and queue posting, keeping the queue handle private to the sequencer component.
+
+- **Parameterless cli_init().** The initialization function takes no arguments. Since the CLI accesses config through `config_snapshot()` and service functions (which operate on the config component's internal state), there is no pointer to pass. This makes the init call site simpler and removes a coupling between `app_main()` and the CLI's internal config access pattern.
+
+- **Logging suppressed at startup.** The REPL sets `ESP_LOG_NONE` globally to keep the interactive prompt usable. Without this, log output from other FreeRTOS tasks interleaves with the prompt and typed input. The `log` command allows surgical re-enablement per-tag when debugging.
 
 - **16 KB REPL task stack.** Explicitly oversized relative to a typical console task. The comment in `cli.c` explains this is to accommodate TLS handshake allocations during OTA updates, which run on the REPL task's stack.
 
@@ -201,10 +235,12 @@ GitHub Releases-based OTA. `repo` configures/displays the GitHub repository. `up
 
 ## Usage Notes
 
-- After changing config values or sequences, remember the three-step workflow: **edit** (in-memory), **apply** (push to live subsystems), **save** (persist to NVS). Forgetting `apply` means changes sit in the config struct but the sequencer runs old values. Forgetting `save` means changes are lost on reboot.
+- After changing config values or sequences, remember the three-step workflow: **edit** (in-memory draft), **apply** (push to live subsystems), **save** (persist to NVS). Forgetting `apply` means changes sit in the config draft but the sequencer runs old values. Forgetting `save` means changes are lost on reboot.
 
 - Direct relay control via `relay <n> on|off` bypasses the sequencer FSM. This is safe for bench testing with no RF power present, but can cause undefined sequencing behavior if used while the sequencer is active.
 
-- Fault injection via `fault inject` posts directly to the sequencer event queue. The emergency fault type triggers `SEQ_EVENT_EMERGENCY_PA_OFF` which immediately de-energises the PA relay, while other fault types use the normal `SEQ_EVENT_FAULT` path.
+- Fault injection via `fault inject` calls `sequencer_inject_fault()` which encapsulates the event queue posting. The fault type string is validated by `seq_fault_parse()` before injection.
 
 - Adding a new command requires: (1) a new `cmd_<name>.c` file with handler and register functions, (2) a forward declaration and call in `cli.c`, and (3) adding the source file and any new component dependencies to `CMakeLists.txt`.
+
+- Adding a new config consumer that should respond to `seq apply` / `config apply` does **not** require CLI changes. Register a callback via `config_register_apply_cb()` in the consumer's init function instead.

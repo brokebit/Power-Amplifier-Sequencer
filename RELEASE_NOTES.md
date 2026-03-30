@@ -1,5 +1,108 @@
 # Release Notes
 
+## v1.1.5
+
+### Refactor: Config Ownership & Service Layer
+
+Centralised config ownership inside the `config` component and introduced a service-function API. Previously, `main.c` owned a `static app_config_t` and handed raw pointers to every subsystem — CLI handlers, web API handlers, sequencer, and monitor all read and wrote through the same shared pointer with inconsistent locking. This created real race windows on the dual-core ESP32-S3 and duplicated business logic across CLI and web entrypoints.
+
+**What changed:**
+
+- **Config owns the draft internally.** `config.c` holds a `static app_config_t s_draft` — no raw pointers leave the component. `config_init()`, `config_save()`, `config_defaults()`, and `config_set_by_key()` are now parameterless. Callers that removed: `cli_get_config()`, `web_get_config()`, `config_get_draft()`.
+
+- **Snapshot-based reads.** All read paths use `config_snapshot()`, which copies the draft under the mutex. This eliminates unlocked reads that previously raced against mutations (e.g., `web_build_state_json()` reading `relay_names` without a lock, monitor reading thresholds mid-update).
+
+- **Service functions for writes.** `config_set_relay_name()` and `config_set_sequence()` validate and write under the lock, replacing duplicated manual lock+memcpy patterns in 4 CLI and 4 web handler files. Validation (relay ID range, step count, state 0/1, delay bounds, name length) is now centralised.
+
+- **Callback-based `config_apply()`.** Pushing draft config to live consumers (sequencer, monitor) goes through `config_apply()`, which calls registered callbacks in order and stops on the first failure. `config_pending_apply()` reports whether the draft differs from the last successful apply via `memcmp` against an internal `s_last_applied` snapshot. Replaces the removed `sequencer_config_matches()`.
+
+- **Race-free sequencer config handoff.** `sequencer_update_config()` now uses a staging area (`s_cfg_pending`) with a `SEQ_EVENT_CONFIG_UPDATE` event and synchronous task-notification ack. The caller blocks up to 100ms for the sequencer task to commit the config in its RX state handler. If PTT races in, the apply fails with `ESP_ERR_TIMEOUT` rather than silently staging a config that may never be committed.
+
+- **Race-free monitor config handoff.** `monitor_update_config()` uses a `portMUX_TYPE` spinlock instead of the config mutex. The monitor task snapshots `s_cfg` into a stack-local copy under the spinlock at the top of each ADC cycle, guaranteeing consistent thresholds throughout the cycle.
+
+- **`sequencer_inject_fault()`.** Centralised fault event construction that was duplicated in `cmd_fault.c` and `api_fault.c`. Maps `SEQ_FAULT_EMERGENCY` to `SEQ_EVENT_EMERGENCY_PA_OFF` and all others to `SEQ_EVENT_FAULT`.
+
+- **Parameterless init functions.** `sequencer_init()`, `monitor_init()`, `cli_init()`, and `web_server_init()` no longer take a config pointer. Each snapshots or registers callbacks internally. `main.c` no longer owns any config state.
+
+### Race Conditions Fixed
+
+| Race | Location | Fix |
+|------|----------|-----|
+| Sequencer partial-copy on dual-core | `sequencer_update_config()` vs `sequencer_task()` | Staging area + event + synchronous ack |
+| Monitor mixed thresholds mid-cycle | `monitor_update_config()` vs `monitor_task()` ADC reads | Spinlock + per-cycle local snapshot |
+| Unlocked relay name read from WS push | `web_build_state_json()` reading `cfg->relay_names` | `config_snapshot()` |
+| Inconsistent locking across entrypoints | CLI direct pointer vs web lock+snapshot | All paths use `config_snapshot()` or service functions |
+
+### API Changes
+
+| Removed | Replacement |
+|---------|-------------|
+| `cli_get_config()` | `config_snapshot()` and service functions |
+| `web_get_config()` | `config_snapshot()` and service functions |
+| `config_get_draft()` | Service functions (`config_set_by_key()`, `config_set_relay_name()`, `config_set_sequence()`, `config_defaults()`) |
+| `sequencer_config_matches()` | `config_pending_apply()` |
+
+| Added | Purpose |
+|-------|---------|
+| `config_snapshot()` | Locked copy of draft for all read paths |
+| `config_set_relay_name()` | Validated relay name write |
+| `config_set_sequence()` | Validated sequence write (TX or RX) |
+| `config_apply()` | Push draft to live consumers via callbacks |
+| `config_pending_apply()` | Draft differs from last-applied? |
+| `config_register_apply_cb()` | Register consumer callback for apply |
+| `sequencer_inject_fault()` | Centralised fault event injection |
+| `SEQ_EVENT_CONFIG_UPDATE` | New sequencer event type for config handoff |
+
+### What Did NOT Change
+
+- REST API contract — all endpoints, methods, request/response formats identical
+- CLI syntax — all commands, arguments, output formats identical
+- NVS format — same `app_config_t` blob, same namespace and key
+- Init order — same boot sequence, same task priorities and stack sizes
+- Component dependency graph — no new edges (callbacks are function pointers)
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `components/config/include/config.h` | New service function declarations; existing signatures now parameterless |
+| `components/config/config.c` | Internal `s_draft` ownership, service functions, callback registry, `config_apply()`, `config_pending_apply()` |
+| `components/sequencer/include/sequencer.h` | `sequencer_inject_fault()`, `SEQ_EVENT_CONFIG_UPDATE`, parameterless `sequencer_init()`, removed `sequencer_config_matches()` |
+| `components/sequencer/sequencer.c` | Fault inject helper, staging area + ack handshake, snapshot-based init, callback registration |
+| `components/monitor/include/monitor.h` | Parameterless `monitor_init()` |
+| `components/monitor/monitor.c` | Spinlock for config, per-cycle local snapshot, snapshot-based init, callback registration |
+| `components/cli/include/cli.h` | Parameterless `cli_init()`, removed `cli_get_config()` |
+| `components/cli/cli.c` | Removed `s_cfg` pointer and getter |
+| `components/cli/cmd_seq.c` | Uses `config_set_sequence()`, `config_apply()`, `config_save()`, `config_snapshot()` |
+| `components/cli/cmd_config.c` | Uses parameterless `config_set_by_key()`, `config_save()`, `config_defaults()`, `config_snapshot()` |
+| `components/cli/cmd_relay.c` | Uses `config_set_relay_name()`, `config_snapshot()` |
+| `components/cli/cmd_fault.c` | Uses `sequencer_inject_fault()` |
+| `components/cli/cmd_status.c` | Uses `config_snapshot()` |
+| `components/web_server/include/web_server.h` | Parameterless `web_server_init()`, removed `web_get_config()` |
+| `components/web_server/web_server.c` | Removed `s_cfg` pointer and getter |
+| `components/web_server/api_config.c` | Uses `config_snapshot()`, parameterless service functions, `config_pending_apply()` |
+| `components/web_server/api_seq.c` | Uses `config_set_sequence()`, `config_apply()` |
+| `components/web_server/api_relay.c` | Uses `config_set_relay_name()` |
+| `components/web_server/api_fault.c` | Uses `sequencer_inject_fault()` |
+| `components/web_server/api_state.c` | Uses `config_snapshot()` for relay names |
+| `src/main.c` | Removed `static app_config_t cfg`, all init calls parameterless |
+
+## v1.1.4
+
+### Bug Fixes
+
+**OTA: SPIFFS download failed due to GitHub redirect handling**
+
+The SPIFFS OTA update added in v1.1.3 used a manual chunked download approach (`esp_http_client_open` / `_read`) that did not follow HTTP redirects. GitHub release asset URLs redirect twice (latest → tag → CDN), so the SPIFFS download silently received a redirect response body instead of the actual `spiffs.bin` image, corrupting the partition.
+
+Fixed by rewriting `ota_update_spiffs()` to use `esp_http_client_perform()`, which follows redirects automatically. Data is now written to the partition incrementally via an `HTTP_EVENT_ON_DATA` event handler, which skips response bodies from non-200 responses (redirect hops). The handler erases the partition on the first data chunk of the final 200 response, validates image size against partition size, and reports write progress. This matches how the firmware OTA path already works.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `components/ota/ota.c` | Rewrote `ota_update_spiffs()` to use event-driven `esp_http_client_perform()` with redirect support; added `spiffs_http_event()` handler and `spiffs_ota_ctx_t` context struct |
+
 ## v1.1.3
 
 ### Improvements

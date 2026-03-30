@@ -20,11 +20,12 @@ static int cmd_status_handler(int argc, char **argv)
            seq_fault_name(ss.seq_fault));
 
     printf("Relays:");
-    const app_config_t *cfg = cli_get_config();
+    app_config_t snap;
+    config_snapshot(&snap);
     for (int i = 0; i < HW_RELAY_COUNT; i++) {
         bool on = (ss.relay_states >> i) & 1;
         char label[24];
-        config_relay_label(cfg, i + 1, label, sizeof(label));
+        config_relay_label(&snap, i + 1, label, sizeof(label));
         printf(" [%s:%s]", label, on ? "ON" : "off");
     }
     printf("\n");

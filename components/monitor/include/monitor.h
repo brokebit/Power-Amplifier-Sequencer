@@ -27,10 +27,10 @@ extern "C" {
 
 /**
  * Initialise monitor: I2C bus, both ADS1115s, ALERT GPIO ISRs.
- * Call after sequencer_init() (needs the event queue).
- * Stores a copy of cfg for the lifetime of the task.
+ * Call after config_init() and sequencer_init() (needs the event queue).
+ * Snapshots the config internally for the lifetime of the task.
  */
-esp_err_t monitor_init(const app_config_t *cfg);
+esp_err_t monitor_init(void);
 
 /**
  * FreeRTOS task entry point.

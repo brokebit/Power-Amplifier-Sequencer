@@ -59,10 +59,10 @@ static void print_config(const app_config_t *cfg)
 
 /* ---- config set --------------------------------------------------------- */
 
-static int set_config_value(app_config_t *cfg, const char *key, const char *val_str)
+static int set_config_value(const char *key, const char *val_str)
 {
     char err_msg[64] = {0};
-    esp_err_t err = config_set_by_key(cfg, key, val_str, err_msg, sizeof(err_msg));
+    esp_err_t err = config_set_by_key(key, val_str, err_msg, sizeof(err_msg));
     if (err == ESP_OK) {
         printf("%s = %s\n", key, val_str);
         return 0;
@@ -80,10 +80,10 @@ static int cmd_config_handler(int argc, char **argv)
         return 1;
     }
 
-    app_config_t *cfg = cli_get_config();
-
     if (strcmp(argv[1], "show") == 0) {
-        print_config(cfg);
+        app_config_t snap;
+        config_snapshot(&snap);
+        print_config(&snap);
         return 0;
     }
 
@@ -94,11 +94,11 @@ static int cmd_config_handler(int argc, char **argv)
                    "fwd_cal ref_cal therm_beta therm_r0 therm_rseries pa_relay\n");
             return 1;
         }
-        return set_config_value(cfg, argv[2], argv[3]);
+        return set_config_value(argv[2], argv[3]);
     }
 
     if (strcmp(argv[1], "save") == 0) {
-        esp_err_t ret = config_save(cfg);
+        esp_err_t ret = config_save();
         if (ret == ESP_OK) {
             printf("Config saved to NVS\n");
         } else {
@@ -108,7 +108,7 @@ static int cmd_config_handler(int argc, char **argv)
     }
 
     if (strcmp(argv[1], "defaults") == 0) {
-        config_defaults(cfg);
+        config_defaults();
         printf("Config reset to factory defaults (in memory only)\n");
         printf("Use 'config save' to persist, 'config show' to review\n");
         return 0;

@@ -4,11 +4,9 @@
 
 #include "cJSON.h"
 #include "config.h"
-#include "monitor.h"
 #include "sequencer.h"
 
 #include "web_json.h"
-#include "web_server.h"
 
 /* ---- POST /api/seq ------------------------------------------------------ */
 
@@ -42,14 +40,10 @@ static esp_err_t api_seq_handler(httpd_req_t *req)
     int count = cJSON_GetArraySize(steps_json);
     if (count < 1 || count > SEQ_MAX_STEPS) {
         cJSON_Delete(body);
-        char msg[48];
-        snprintf(msg, sizeof(msg), "steps count must be 1-%d", SEQ_MAX_STEPS);
+        char msg[64];
+        snprintf(msg, sizeof(msg), "step count must be 1-%d", SEQ_MAX_STEPS);
         return web_json_error(req, 400, msg);
     }
-
-    app_config_t *cfg = web_get_config();
-    seq_step_t *steps = is_tx ? cfg->tx_steps : cfg->rx_steps;
-    uint8_t *num_ptr = is_tx ? &cfg->tx_num_steps : &cfg->rx_num_steps;
 
     seq_step_t new_steps[SEQ_MAX_STEPS];
     for (int i = 0; i < count; i++) {
@@ -69,32 +63,18 @@ static esp_err_t api_seq_handler(httpd_req_t *req)
             return web_json_error(req, 400, msg);
         }
 
-        int relay_id = relay_id_json->valueint;
-        if (relay_id < 1 || relay_id > HW_RELAY_COUNT) {
-            cJSON_Delete(body);
-            char msg[48];
-            snprintf(msg, sizeof(msg), "relay_id must be 1-%d", HW_RELAY_COUNT);
-            return web_json_error(req, 400, msg);
-        }
-        int delay_ms = delay_json->valueint;
-        if (delay_ms < 0 || delay_ms > SEQ_MAX_DELAY_MS) {
-            cJSON_Delete(body);
-            char msg[48];
-            snprintf(msg, sizeof(msg), "delay_ms must be 0-%d", SEQ_MAX_DELAY_MS);
-            return web_json_error(req, 400, msg);
-        }
-
-        new_steps[i].relay_id = (uint8_t)relay_id;
+        new_steps[i].relay_id = (uint8_t)relay_id_json->valueint;
         new_steps[i].state = cJSON_IsTrue(state_json) ? 1 : 0;
-        new_steps[i].delay_ms = (uint16_t)delay_ms;
+        new_steps[i].delay_ms = (uint16_t)delay_json->valueint;
     }
-
-    config_lock();
-    memcpy(steps, new_steps, count * sizeof(seq_step_t));
-    *num_ptr = (uint8_t)count;
-    config_unlock();
-
     cJSON_Delete(body);
+
+    char err_msg[80];
+    esp_err_t err = config_set_sequence(is_tx, new_steps, (uint8_t)count,
+                                        err_msg, sizeof(err_msg));
+    if (err != ESP_OK) {
+        return web_json_error(req, 400, err_msg);
+    }
     return web_json_ok(req, NULL);
 }
 
@@ -102,17 +82,16 @@ static esp_err_t api_seq_handler(httpd_req_t *req)
 
 static esp_err_t api_seq_apply_handler(httpd_req_t *req)
 {
-    app_config_t *cfg = web_get_config();
-
-    esp_err_t err = sequencer_update_config(cfg);
+    esp_err_t err = config_apply();
     if (err == ESP_ERR_INVALID_STATE) {
         return web_json_error(req, 409, "sequencer not in RX state");
     }
-    if (err != ESP_OK) {
-        return web_json_error(req, 500, "failed to update sequencer config");
+    if (err == ESP_ERR_TIMEOUT) {
+        return web_json_error(req, 409, "sequencer busy (PTT active)");
     }
-
-    monitor_update_config(cfg);
+    if (err != ESP_OK) {
+        return web_json_error(req, 500, "failed to apply config");
+    }
     return web_json_ok(req, NULL);
 }
 

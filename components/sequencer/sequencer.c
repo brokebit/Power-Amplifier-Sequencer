@@ -86,6 +86,11 @@ static seq_state_t s_state = SEQ_STATE_RX;
 static seq_fault_t s_fault = SEQ_FAULT_NONE;
 static app_config_t s_cfg;
 
+/* Config update staging area — written by caller, consumed by task */
+static app_config_t     s_cfg_pending;
+static volatile bool    s_cfg_pending_flag = false;
+static TaskHandle_t     s_cfg_ack_task     = NULL;
+
 /* ---------------------------------------------------------
  * Helpers
  * --------------------------------------------------------- */
@@ -142,13 +147,13 @@ static void emergency_shutdown(seq_fault_t fault_code)
  * Public API
  * --------------------------------------------------------- */
 
-esp_err_t sequencer_init(const app_config_t *cfg)
+esp_err_t sequencer_init(void)
 {
     if (s_queue != NULL) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    memcpy(&s_cfg, cfg, sizeof(app_config_t));
+    config_snapshot(&s_cfg);
 
     s_queue = xQueueCreate(EVENT_QUEUE_LEN, sizeof(seq_event_t));
     if (s_queue == NULL) {
@@ -159,6 +164,8 @@ esp_err_t sequencer_init(const app_config_t *cfg)
     s_state = SEQ_STATE_RX;
     s_fault = SEQ_FAULT_NONE;
     system_state_set_sequencer(s_state, s_fault);
+
+    config_register_apply_cb(sequencer_update_config);
 
     ESP_LOGI(TAG, "Sequencer initialised");
     return ESP_OK;
@@ -184,20 +191,43 @@ esp_err_t sequencer_update_config(const app_config_t *cfg)
     if (s_state != SEQ_STATE_RX) {
         return ESP_ERR_INVALID_STATE;
     }
-    config_lock();
-    memcpy(&s_cfg, cfg, sizeof(app_config_t));
-    config_unlock();
-    ESP_LOGI(TAG, "Config updated (TX:%d steps, RX:%d steps)",
-             s_cfg.tx_num_steps, s_cfg.rx_num_steps);
+
+    /* Stage the new config and record caller for ack */
+    memcpy(&s_cfg_pending, cfg, sizeof(s_cfg_pending));
+    s_cfg_pending_flag = true;
+    s_cfg_ack_task = xTaskGetCurrentTaskHandle();
+
+    /* Queue the update event */
+    seq_event_t ev = { .type = SEQ_EVENT_CONFIG_UPDATE };
+    if (xQueueSend(s_queue, &ev, 0) != pdTRUE) {
+        s_cfg_pending_flag = false;
+        s_cfg_ack_task = NULL;
+        return ESP_FAIL;
+    }
+
+    /* Block until the task acks or timeout (PTT raced in) */
+    uint32_t notified = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100));
+    if (notified == 0) {
+        s_cfg_pending_flag = false;
+        s_cfg_ack_task = NULL;
+        return ESP_ERR_TIMEOUT;
+    }
+
     return ESP_OK;
 }
 
-bool sequencer_config_matches(const app_config_t *cfg)
+esp_err_t sequencer_inject_fault(seq_fault_t fault)
 {
-    config_lock();
-    bool match = memcmp(&s_cfg, cfg, sizeof(app_config_t)) == 0;
-    config_unlock();
-    return match;
+    seq_event_t ev = {
+        .type = (fault == SEQ_FAULT_EMERGENCY)
+                    ? SEQ_EVENT_EMERGENCY_PA_OFF
+                    : SEQ_EVENT_FAULT,
+        .data = (uint32_t)fault,
+    };
+    if (xQueueSend(s_queue, &ev, 0) != pdTRUE) {
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }
 
 esp_err_t sequencer_clear_fault(void)
@@ -252,6 +282,20 @@ void sequencer_task(void *arg)
                 emergency_shutdown(evt.type == SEQ_EVENT_FAULT
                                    ? (seq_fault_t)evt.data
                                    : SEQ_FAULT_EMERGENCY);
+                break;
+
+            case SEQ_EVENT_CONFIG_UPDATE:
+                if (s_cfg_pending_flag) {
+                    memcpy(&s_cfg, &s_cfg_pending, sizeof(s_cfg));
+                    s_cfg_pending_flag = false;
+                    TaskHandle_t ack = s_cfg_ack_task;
+                    s_cfg_ack_task = NULL;
+                    if (ack) {
+                        xTaskNotifyGive(ack);
+                    }
+                    ESP_LOGI(TAG, "Config updated (TX:%d steps, RX:%d steps)",
+                             s_cfg.tx_num_steps, s_cfg.rx_num_steps);
+                }
                 break;
 
             default:

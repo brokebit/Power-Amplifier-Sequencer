@@ -5,12 +5,12 @@
 #include "esp_http_server.h"
 
 #include "cJSON.h"
+#include "config.h"
 #include "hw_config.h"
 #include "sequencer.h"
 #include "system_state.h"
 
 #include "web_json.h"
-#include "web_server.h"
 
 /* ---- helpers ------------------------------------------------------------ */
 
@@ -35,11 +35,12 @@ cJSON *web_build_state_json(void)
     cJSON_AddItemToObject(data, "relays", relays);
 
     /* Relay names */
-    const app_config_t *cfg = web_get_config();
+    app_config_t cfg_snap;
+    config_snapshot(&cfg_snap);
     cJSON *names = cJSON_CreateArray();
     for (int i = 0; i < HW_RELAY_COUNT; i++) {
         cJSON_AddItemToArray(names,
-            cJSON_CreateString(cfg->relay_names[i][0] ? cfg->relay_names[i] : ""));
+            cJSON_CreateString(cfg_snap.relay_names[i][0] ? cfg_snap.relay_names[i] : ""));
     }
     cJSON_AddItemToObject(data, "relay_names", names);
 

@@ -7,20 +7,19 @@
 
 #include "config.h"
 #include "sequencer.h"
-#include "monitor.h"
 
 #include "cli.h"
 
 /* ---- helpers ------------------------------------------------------------ */
 
-static void print_sequence(const char *label, const seq_step_t *steps, uint8_t num)
+static void print_sequence(const app_config_t *cfg, const char *label,
+                           const seq_step_t *steps, uint8_t num)
 {
     printf("%s sequence (%d steps):\n", label, num);
     if (num == 0) {
         printf("  (empty)\n");
         return;
     }
-    const app_config_t *cfg = cli_get_config();
     for (int i = 0; i < num; i++) {
         char relay_label[24];
         config_relay_label(cfg, steps[i].relay_id, relay_label, sizeof(relay_label));
@@ -102,11 +101,9 @@ static int cmd_seq_handler(int argc, char **argv)
         return 1;
     }
 
-    app_config_t *cfg = cli_get_config();
-
     /* --- seq save --- */
     if (strcmp(argv[1], "save") == 0) {
-        esp_err_t ret = config_save(cfg);
+        esp_err_t ret = config_save();
         if (ret == ESP_OK) {
             printf("Sequences saved to NVS\n");
         } else {
@@ -117,12 +114,11 @@ static int cmd_seq_handler(int argc, char **argv)
 
     /* --- seq apply --- */
     if (strcmp(argv[1], "apply") == 0) {
-        esp_err_t ret = sequencer_update_config(cfg);
+        esp_err_t ret = config_apply();
         if (ret != ESP_OK) {
-            printf("Cannot apply: sequencer not in RX state\n");
+            printf("Cannot apply: %s\n", esp_err_to_name(ret));
             return 1;
         }
-        monitor_update_config(cfg);
         printf("Config applied to sequencer and monitor\n");
         return 0;
     }
@@ -143,12 +139,14 @@ static int cmd_seq_handler(int argc, char **argv)
         return 1;
     }
 
-    seq_step_t *steps = is_tx ? cfg->tx_steps : cfg->rx_steps;
-    uint8_t *num_ptr = is_tx ? &cfg->tx_num_steps : &cfg->rx_num_steps;
     const char *label = is_tx ? "TX" : "RX";
 
     if (strcmp(argv[2], "show") == 0) {
-        print_sequence(label, steps, *num_ptr);
+        app_config_t snap;
+        config_snapshot(&snap);
+        const seq_step_t *steps = is_tx ? snap.tx_steps : snap.rx_steps;
+        uint8_t num = is_tx ? snap.tx_num_steps : snap.rx_num_steps;
+        print_sequence(&snap, label, steps, num);
         return 0;
     }
 
@@ -165,12 +163,19 @@ static int cmd_seq_handler(int argc, char **argv)
             return 1;
         }
 
-        config_lock();
-        memcpy(steps, new_steps, count * sizeof(seq_step_t));
-        *num_ptr = (uint8_t)count;
-        config_unlock();
+        char err_msg[64];
+        esp_err_t ret = config_set_sequence(is_tx, new_steps, (uint8_t)count,
+                                            err_msg, sizeof(err_msg));
+        if (ret != ESP_OK) {
+            printf("%s\n", err_msg);
+            return 1;
+        }
 
-        print_sequence(label, steps, *num_ptr);
+        app_config_t snap;
+        config_snapshot(&snap);
+        const seq_step_t *steps = is_tx ? snap.tx_steps : snap.rx_steps;
+        uint8_t num = is_tx ? snap.tx_num_steps : snap.rx_num_steps;
+        print_sequence(&snap, label, steps, num);
         printf("(use 'seq save' to persist, 'seq apply' to activate)\n");
         return 0;
     }

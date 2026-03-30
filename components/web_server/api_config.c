@@ -5,27 +5,20 @@
 #include "cJSON.h"
 #include "config.h"
 #include "hw_config.h"
-#include "sequencer.h"
 
 #include "web_json.h"
-#include "web_server.h"
 
 /* ---- GET /api/config ---------------------------------------------------- */
 
 static esp_err_t api_config_get_handler(httpd_req_t *req)
 {
-    const app_config_t *cfg = web_get_config();
-
     cJSON *data = cJSON_CreateObject();
     if (!data) {
         return web_json_error(req, 500, "out of memory");
     }
 
-    /* Snapshot the config under the lock so we get a consistent read. */
-    config_lock();
     app_config_t snap;
-    memcpy(&snap, cfg, sizeof(snap));
-    config_unlock();
+    config_snapshot(&snap);
 
     /* Thresholds */
     cJSON_AddNumberToObject(data, "swr_threshold", snap.swr_fault_threshold);
@@ -74,8 +67,7 @@ static esp_err_t api_config_get_handler(httpd_req_t *req)
 
     /* True when in-memory config has been edited but not yet pushed
      * to the live sequencer/monitor via POST /api/seq/apply. */
-    cJSON_AddBoolToObject(data, "pending_apply",
-                          !sequencer_config_matches(&snap));
+    cJSON_AddBoolToObject(data, "pending_apply", config_pending_apply());
 
     return web_json_ok(req, data);
 }
@@ -112,10 +104,8 @@ static esp_err_t api_config_set_handler(httpd_req_t *req)
     snprintf(key_str, sizeof(key_str), "%s", key_json->valuestring);
     cJSON_Delete(body);
 
-    app_config_t *cfg = web_get_config();
     char err_msg[64] = {0};
-    esp_err_t err = config_set_by_key(cfg, key_str, val_str,
-                                       err_msg, sizeof(err_msg));
+    esp_err_t err = config_set_by_key(key_str, val_str, err_msg, sizeof(err_msg));
 
     if (err != ESP_OK) {
         return web_json_error(req, 400, err_msg[0] ? err_msg : "invalid key or value");
@@ -131,8 +121,7 @@ static esp_err_t api_config_set_handler(httpd_req_t *req)
 
 static esp_err_t api_config_save_handler(httpd_req_t *req)
 {
-    app_config_t *cfg = web_get_config();
-    esp_err_t err = config_save(cfg);
+    esp_err_t err = config_save();
     if (err != ESP_OK) {
         return web_json_error(req, 500, "failed to save config to NVS");
     }
@@ -143,8 +132,7 @@ static esp_err_t api_config_save_handler(httpd_req_t *req)
 
 static esp_err_t api_config_defaults_handler(httpd_req_t *req)
 {
-    app_config_t *cfg = web_get_config();
-    config_defaults(cfg);
+    config_defaults();
     return web_json_ok(req, NULL);
 }
 
