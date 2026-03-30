@@ -51,15 +51,15 @@ static esp_err_t api_fault_inject_handler(httpd_req_t *req)
 void web_register_api_fault(httpd_handle_t server)
 {
     const httpd_uri_t clear_uri = {
-        .uri ="/api/fault/clear",
-        .method =HTTP_POST,
+        .uri = "/api/fault/clear",
+        .method = HTTP_POST,
         .handler = api_fault_clear_handler,
     };
     httpd_register_uri_handler(server, &clear_uri);
 
     const httpd_uri_t inject_uri = {
-        .uri ="/api/fault/inject",
-        .method =HTTP_POST,
+        .uri = "/api/fault/inject",
+        .method = HTTP_POST,
         .handler = api_fault_inject_handler,
     };
     httpd_register_uri_handler(server, &inject_uri);

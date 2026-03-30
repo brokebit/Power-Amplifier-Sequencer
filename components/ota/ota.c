@@ -7,15 +7,14 @@
 #include "esp_https_ota.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
+#include "esp_partition.h"
+#include "esp_spiffs.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs.h"
-#include "wifi_sta.h"
-
-#include "esp_partition.h"
-#include "esp_spiffs.h"
 #include "web_server.h"
+#include "wifi_sta.h"
 
 #include "ota.h"
 
@@ -232,17 +231,20 @@ static esp_err_t spiffs_http_event(esp_http_client_event_t *evt)
 {
     spiffs_ota_ctx_t *ctx = (spiffs_ota_ctx_t *)evt->user_data;
 
-    if (evt->event_id != HTTP_EVENT_ON_DATA || !ctx)
+    if (evt->event_id != HTTP_EVENT_ON_DATA || !ctx) {
         return ESP_OK;
+    }
 
     /* Only write data from the final 200 response, not redirect bodies */
     int status = esp_http_client_get_status_code(evt->client);
-    if (status != 200)
+    if (status != 200) {
         return ESP_OK;
+    }
 
     /* Abort early if a previous write already failed */
-    if (ctx->write_err != ESP_OK)
+    if (ctx->write_err != ESP_OK) {
         return ESP_OK;
+    }
 
     /* Erase partition on first data chunk */
     if (!ctx->erased) {
@@ -446,7 +448,7 @@ esp_err_t app_ota_update(const char *target)
     int image_size = esp_https_ota_get_image_size(ota_handle);
     int last_progress = -1;
 
-    while (1) {
+    for (;;) {
         err = esp_https_ota_perform(ota_handle);
         if (err != ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
             break;

@@ -100,15 +100,15 @@ static esp_err_t api_seq_apply_handler(httpd_req_t *req)
 void web_register_api_seq(httpd_handle_t server)
 {
     const httpd_uri_t seq_uri = {
-        .uri ="/api/seq",
-        .method =HTTP_POST,
+        .uri = "/api/seq",
+        .method = HTTP_POST,
         .handler = api_seq_handler,
     };
     httpd_register_uri_handler(server, &seq_uri);
 
     const httpd_uri_t apply_uri = {
-        .uri ="/api/seq/apply",
-        .method =HTTP_POST,
+        .uri = "/api/seq/apply",
+        .method = HTTP_POST,
         .handler = api_seq_apply_handler,
     };
     httpd_register_uri_handler(server, &apply_uri);

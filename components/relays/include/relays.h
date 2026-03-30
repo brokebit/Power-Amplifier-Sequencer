@@ -5,11 +5,6 @@
 
 #include "esp_err.h"
 
-/* =========================================================
- * relays.h -- GPIO relay driver
- * Relay IDs are 1-indexed (1-6) matching schematic labels.
- * ========================================================= */
-
 #ifdef __cplusplus
 extern "C" {
 #endif

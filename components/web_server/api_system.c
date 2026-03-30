@@ -78,15 +78,15 @@ static esp_err_t api_log_handler(httpd_req_t *req)
 void web_register_api_system(httpd_handle_t server)
 {
     const httpd_uri_t reboot_uri = {
-        .uri ="/api/reboot",
-        .method =HTTP_POST,
+        .uri = "/api/reboot",
+        .method = HTTP_POST,
         .handler = api_reboot_handler,
     };
     httpd_register_uri_handler(server, &reboot_uri);
 
     const httpd_uri_t log_uri = {
-        .uri ="/api/log",
-        .method =HTTP_POST,
+        .uri = "/api/log",
+        .method = HTTP_POST,
         .handler = api_log_handler,
     };
     httpd_register_uri_handler(server, &log_uri);

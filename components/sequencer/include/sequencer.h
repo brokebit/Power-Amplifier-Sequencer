@@ -7,14 +7,6 @@
 
 #include "config.h"
 
-/* =========================================================
- * sequencer.h — Core RF PA sequencer state machine
- *
- * The sequencer owns the central event queue. PTT ISR, button
- * ISR, and monitor_task all send events to this queue.
- * sequencer_task() is the sole consumer.
- * ========================================================= */
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -37,11 +29,11 @@ typedef enum
  * --------------------------------------------------------- */
 typedef enum
 {
-    SEQ_EVENT_PTT_ASSERT,      /* PTT line went active (low) */
-    SEQ_EVENT_PTT_RELEASE,     /* PTT line released (high) */
-    SEQ_EVENT_FAULT,           /* Fault detected; data = seq_fault_t */
+    SEQ_EVENT_PTT_ASSERT, /* PTT line went active (low) */
+    SEQ_EVENT_PTT_RELEASE, /* PTT line released (high) */
+    SEQ_EVENT_FAULT, /* Fault detected; data = seq_fault_t */
     SEQ_EVENT_EMERGENCY_PA_OFF, /* Emergency button pressed */
-    SEQ_EVENT_CONFIG_UPDATE     /* Config apply — handled only in RX state */
+    SEQ_EVENT_CONFIG_UPDATE /* Config apply — handled only in RX state */
 } seq_event_type_t;
 
 typedef struct
@@ -55,11 +47,11 @@ typedef struct
  * --------------------------------------------------------- */
 typedef enum
 {
-    SEQ_STATE_RX,            /* Idle -- RX path active */
+    SEQ_STATE_RX, /* Idle -- RX path active */
     SEQ_STATE_SEQUENCING_TX, /* Executing TX relay sequence */
-    SEQ_STATE_TX,            /* TX active */
+    SEQ_STATE_TX, /* TX active */
     SEQ_STATE_SEQUENCING_RX, /* Executing RX relay sequence */
-    SEQ_STATE_FAULT          /* Latched fault -- manual clear required */
+    SEQ_STATE_FAULT /* Latched fault -- manual clear required */
 } seq_state_t;
 
 /* ---------------------------------------------------------

@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 
 #include "esp_http_server.h"
@@ -159,50 +160,50 @@ static esp_err_t api_wifi_erase_handler(httpd_req_t *req)
 void web_register_api_wifi(httpd_handle_t server)
 {
     const httpd_uri_t status_uri = {
-        .uri ="/api/wifi/status",
-        .method =HTTP_GET,
+        .uri = "/api/wifi/status",
+        .method = HTTP_GET,
         .handler = api_wifi_status_handler,
     };
     httpd_register_uri_handler(server, &status_uri);
 
     const httpd_uri_t config_uri = {
-        .uri ="/api/wifi/config",
-        .method =HTTP_POST,
+        .uri = "/api/wifi/config",
+        .method = HTTP_POST,
         .handler = api_wifi_config_handler,
     };
     httpd_register_uri_handler(server, &config_uri);
 
     const httpd_uri_t connect_uri = {
-        .uri ="/api/wifi/connect",
-        .method =HTTP_POST,
+        .uri = "/api/wifi/connect",
+        .method = HTTP_POST,
         .handler = api_wifi_connect_handler,
     };
     httpd_register_uri_handler(server, &connect_uri);
 
     const httpd_uri_t disconnect_uri = {
-        .uri ="/api/wifi/disconnect",
-        .method =HTTP_POST,
+        .uri = "/api/wifi/disconnect",
+        .method = HTTP_POST,
         .handler = api_wifi_disconnect_handler,
     };
     httpd_register_uri_handler(server, &disconnect_uri);
 
     const httpd_uri_t scan_uri = {
-        .uri ="/api/wifi/scan",
-        .method =HTTP_GET,
+        .uri = "/api/wifi/scan",
+        .method = HTTP_GET,
         .handler = api_wifi_scan_handler,
     };
     httpd_register_uri_handler(server, &scan_uri);
 
     const httpd_uri_t auto_uri = {
-        .uri ="/api/wifi/auto",
-        .method =HTTP_POST,
+        .uri = "/api/wifi/auto",
+        .method = HTTP_POST,
         .handler = api_wifi_auto_handler,
     };
     httpd_register_uri_handler(server, &auto_uri);
 
     const httpd_uri_t erase_uri = {
-        .uri ="/api/wifi/erase",
-        .method =HTTP_POST,
+        .uri = "/api/wifi/erase",
+        .method = HTTP_POST,
         .handler = api_wifi_erase_handler,
     };
     httpd_register_uri_handler(server, &erase_uri);

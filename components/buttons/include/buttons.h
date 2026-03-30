@@ -4,22 +4,6 @@
 
 #include "esp_err.h"
 
-/* =========================================================
- * buttons.h — Debounced GPIO button driver
- *
- * BTN1 (GPIO 4): Emergency PA Off — wired directly to the
- *   sequencer event queue (SEQ_EVENT_EMERGENCY_PA_OFF).
- * BTN2–6 (GPIO 5,6,7,48,47): Spare — optional callbacks.
- *
- * Debounce: falling edge ISR starts a 50 ms one-shot esp_timer.
- * On expiry the GPIO level is re-read; if still low the press
- * is confirmed. The ISR is re-armed after the timer fires.
- *
- * Call buttons_init() after sequencer_init() and after the
- * GPIO ISR service has been installed (ptt_init installs it,
- * or call gpio_install_isr_service() yourself beforehand).
- * ========================================================= */
-
 #ifdef __cplusplus
 extern "C" {
 #endif

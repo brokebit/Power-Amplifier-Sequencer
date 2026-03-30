@@ -141,29 +141,29 @@ static esp_err_t api_config_defaults_handler(httpd_req_t *req)
 void web_register_api_config(httpd_handle_t server)
 {
     const httpd_uri_t get_uri = {
-        .uri ="/api/config",
-        .method =HTTP_GET,
+        .uri = "/api/config",
+        .method = HTTP_GET,
         .handler = api_config_get_handler,
     };
     httpd_register_uri_handler(server, &get_uri);
 
     const httpd_uri_t set_uri = {
-        .uri ="/api/config",
-        .method =HTTP_POST,
+        .uri = "/api/config",
+        .method = HTTP_POST,
         .handler = api_config_set_handler,
     };
     httpd_register_uri_handler(server, &set_uri);
 
     const httpd_uri_t save_uri = {
-        .uri ="/api/config/save",
-        .method =HTTP_POST,
+        .uri = "/api/config/save",
+        .method = HTTP_POST,
         .handler = api_config_save_handler,
     };
     httpd_register_uri_handler(server, &save_uri);
 
     const httpd_uri_t defaults_uri = {
-        .uri ="/api/config/defaults",
-        .method =HTTP_POST,
+        .uri = "/api/config/defaults",
+        .method = HTTP_POST,
         .handler = api_config_defaults_handler,
     };
     httpd_register_uri_handler(server, &defaults_uri);

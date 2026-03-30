@@ -1,24 +1,21 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "esp_err.h"
 
 #include "hw_config.h"
 
-/* =========================================================
- * config.h — NVS-backed runtime configuration
- * ========================================================= */
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define SEQ_MAX_STEPS       8      /* Max relay steps per TX or RX sequence */
-#define SEQ_MAX_DELAY_MS    10000  /* Max delay between sequence steps (ms) */
-#define CFG_RELAY_NAME_LEN  16     /* Max relay name length including null terminator */
-#define CONFIG_MAX_APPLY_CBS 4     /* Max config_apply() callbacks */
+#define SEQ_MAX_STEPS 8           /* Max relay steps per TX or RX sequence */
+#define SEQ_MAX_DELAY_MS 10000    /* Max delay between sequence steps (ms) */
+#define CFG_RELAY_NAME_LEN 16     /* Max relay name length including null terminator */
+#define CONFIG_MAX_APPLY_CBS 4    /* Max config_apply() callbacks */
 
 /* NVS namespace and blob key */
 #define CFG_NVS_NAMESPACE "seq_cfg"

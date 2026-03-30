@@ -1,18 +1,16 @@
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "esp_log.h"
 
 #include "cJSON.h"
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 
+#include "web_json.h"
 #include "web_ws.h"
-
-/* Defined in api_state.c */
-cJSON *web_build_state_json(void);
 
 static const char *TAG = "web_ws";
 
@@ -88,18 +86,12 @@ static void ws_push_task(void *arg)
 {
     (void)arg;
 
-    while (1) {
+    for (;;) {
         vTaskDelay(pdMS_TO_TICKS(500));
 
         /* Build state JSON */
-        cJSON *root = cJSON_CreateObject();
-        if (!root) {
-            continue;
-        }
-
         cJSON *state = web_build_state_json();
         if (!state) {
-            cJSON_Delete(root);
             continue;
         }
 
@@ -107,10 +99,8 @@ static void ws_push_task(void *arg)
         char *json_str = cJSON_PrintUnformatted(state);
         cJSON_Delete(state);
         if (!json_str) {
-            cJSON_Delete(root);
             continue;
         }
-        cJSON_Delete(root);
 
         size_t json_len = strlen(json_str);
 

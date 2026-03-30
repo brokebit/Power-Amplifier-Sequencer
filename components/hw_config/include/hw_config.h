@@ -3,11 +3,6 @@
 #include "hal/i2c_types.h"
 #include "hal/uart_types.h"
 
-/* =========================================================
- * hw_config.h — Hardware pin and peripheral definitions
- * ESP32-S3 23cm RF PA Sequencer
- * ========================================================= */
-
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -22,19 +22,19 @@ static const char *TAG = "sequencer";
  * --------------------------------------------------------- */
 
 static const char *s_state_names[] = {
-    [SEQ_STATE_RX]            = "RX",
+    [SEQ_STATE_RX] = "RX",
     [SEQ_STATE_SEQUENCING_TX] = "SEQ_TX",
-    [SEQ_STATE_TX]            = "TX",
+    [SEQ_STATE_TX] = "TX",
     [SEQ_STATE_SEQUENCING_RX] = "SEQ_RX",
-    [SEQ_STATE_FAULT]         = "FAULT",
+    [SEQ_STATE_FAULT] = "FAULT",
 };
 
 static const char *s_fault_names[] = {
-    [SEQ_FAULT_NONE]       = "none",
-    [SEQ_FAULT_HIGH_SWR]   = "HIGH_SWR",
+    [SEQ_FAULT_NONE] = "none",
+    [SEQ_FAULT_HIGH_SWR] = "HIGH_SWR",
     [SEQ_FAULT_OVER_TEMP1] = "OVER_TEMP1",
     [SEQ_FAULT_OVER_TEMP2] = "OVER_TEMP2",
-    [SEQ_FAULT_EMERGENCY]  = "EMERGENCY",
+    [SEQ_FAULT_EMERGENCY] = "EMERGENCY",
 };
 
 typedef struct {
@@ -43,10 +43,10 @@ typedef struct {
 } fault_keyword_t;
 
 static const fault_keyword_t s_fault_keywords[] = {
-    { "swr",       SEQ_FAULT_HIGH_SWR   },
-    { "temp1",     SEQ_FAULT_OVER_TEMP1  },
-    { "temp2",     SEQ_FAULT_OVER_TEMP2  },
-    { "emergency", SEQ_FAULT_EMERGENCY   },
+    { "swr", SEQ_FAULT_HIGH_SWR },
+    { "temp1", SEQ_FAULT_OVER_TEMP1 },
+    { "temp2", SEQ_FAULT_OVER_TEMP2 },
+    { "emergency", SEQ_FAULT_EMERGENCY },
 };
 
 #define FAULT_KEYWORD_COUNT  (sizeof(s_fault_keywords) / sizeof(s_fault_keywords[0]))
@@ -87,9 +87,9 @@ static seq_fault_t s_fault = SEQ_FAULT_NONE;
 static app_config_t s_cfg;
 
 /* Config update staging area — written by caller, consumed by task */
-static app_config_t     s_cfg_pending;
-static volatile bool    s_cfg_pending_flag = false;
-static TaskHandle_t     s_cfg_ack_task     = NULL;
+static app_config_t s_cfg_pending;
+static volatile bool s_cfg_pending_flag = false;
+static TaskHandle_t s_cfg_ack_task = NULL;
 
 /* ---------------------------------------------------------
  * Helpers

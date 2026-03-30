@@ -105,15 +105,15 @@ static esp_err_t api_version_handler(httpd_req_t *req)
 void web_register_api_state(httpd_handle_t server)
 {
     const httpd_uri_t state_uri = {
-        .uri ="/api/state",
-        .method =HTTP_GET,
+        .uri = "/api/state",
+        .method = HTTP_GET,
         .handler =api_state_handler,
     };
     httpd_register_uri_handler(server, &state_uri);
 
     const httpd_uri_t version_uri = {
-        .uri ="/api/version",
-        .method =HTTP_GET,
+        .uri = "/api/version",
+        .method = HTTP_GET,
         .handler =api_version_handler,
     };
     httpd_register_uri_handler(server, &version_uri);

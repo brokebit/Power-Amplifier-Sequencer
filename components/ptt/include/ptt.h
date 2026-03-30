@@ -4,17 +4,6 @@
 
 #include "esp_err.h"
 
-/* =========================================================
- * ptt.h — PTT GPIO interrupt driver
- *
- * Monitors GPIO 13 (active low, internal pull-up).
- * Falling edge → SEQ_EVENT_PTT_ASSERT sent to sequencer queue.
- * Rising edge  → SEQ_EVENT_PTT_RELEASE sent to sequencer queue.
- *
- * Call ptt_init() after sequencer_init() so the event queue
- * handle is available.
- * ========================================================= */
-
 #ifdef __cplusplus
 extern "C" {
 #endif

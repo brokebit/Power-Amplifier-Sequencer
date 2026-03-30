@@ -10,17 +10,6 @@
 extern "C" {
 #endif
 
-/* =========================================================
- * wifi_sta.h — WiFi Station mode manager
- *
- * Manages WiFi STA connection with NVS-backed credentials.
- * Auto-connects on init if credentials are saved and WiFi
- * is enabled. Publishes connection state to system_state.
- *
- * Public API uses app_wifi_ prefix to avoid symbol collision
- * with ESP-IDF internal wifi_sta_* symbols.
- * ========================================================= */
-
 /**
  * Initialise WiFi subsystem: event loop, netif, driver.
  * If credentials exist in NVS and WiFi is enabled,

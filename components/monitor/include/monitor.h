@@ -5,22 +5,6 @@
 #include "ads1115.h"
 #include "config.h"
 
-/* =========================================================
- * monitor.h — ADC monitoring task
- *
- * Drives ADS1115 (0x49) in single-shot mode (8 SPS).
- *   AIN0 = forward power,   AIN1 = reflected power
- *   AIN2 = temp1 PA,   AIN3 = temp2 PA
- *
- * Thermistor: Steinhart-Hart beta equation, voltage divider
- *   VCC → R_series → NTC → GND, ADS1115 measures across NTC.
- *
- * Power/SWR: P = cal_factor × V²;  SWR = (1+Γ)/(1-Γ), Γ = Vr/Vf
- *
- * On threshold breach: sends SEQ_EVENT_FAULT to the sequencer queue.
- * Live readings are published to system_state each cycle (~500 ms).
- * ========================================================= */
-
 #ifdef __cplusplus
 extern "C" {
 #endif

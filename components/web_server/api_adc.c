@@ -70,8 +70,8 @@ static esp_err_t api_adc_handler(httpd_req_t *req)
 void web_register_api_adc(httpd_handle_t server)
 {
     const httpd_uri_t adc_uri = {
-        .uri ="/api/adc",
-        .method =HTTP_GET,
+        .uri = "/api/adc",
+        .method = HTTP_GET,
         .handler = api_adc_handler,
     };
     httpd_register_uri_handler(server, &adc_uri);

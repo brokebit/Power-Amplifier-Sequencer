@@ -66,8 +66,8 @@ esp_err_t ads1115_init(i2c_master_bus_handle_t bus, uint8_t addr,
 
     i2c_device_config_t dev_cfg = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address  = addr,
-        .scl_speed_hz    = 400000,
+        .device_address = addr,
+        .scl_speed_hz = 400000,
     };
     esp_err_t ret = i2c_master_bus_add_device(bus, &dev_cfg, &dev->i2c_dev);
     if (ret != ESP_OK) {

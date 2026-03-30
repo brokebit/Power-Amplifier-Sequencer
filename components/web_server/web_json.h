@@ -29,6 +29,12 @@ esp_err_t web_json_error(httpd_req_t *req, int http_status, const char *msg);
  */
 cJSON *web_parse_body(httpd_req_t *req);
 
+/**
+ * Build the full system state JSON object (sequencer, relays, ADC, etc.).
+ * Caller must cJSON_Delete the returned object.
+ */
+cJSON *web_build_state_json(void);
+
 #ifdef __cplusplus
 }
 #endif

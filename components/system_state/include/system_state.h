@@ -5,22 +5,6 @@
 
 #include "hw_config.h"
 
-/* =========================================================
- * system_state.h — Observable system state snapshot
- *
- * A single struct aggregating live state from all subsystems.
- * Producers (sequencer, monitor, PTT ISR) publish via setter
- * functions.  Consumers (display, console logger) read an
- * atomic snapshot with system_state_get().
- *
- * All access is protected by a spinlock — hold time is a
- * single memcpy, so callers never block.
- *
- * seq_state and seq_fault are stored as uint8_t to avoid a
- * header dependency on sequencer.h.  Cast to seq_state_t /
- * seq_fault_t when reading.
- * ========================================================= */
-
 #ifdef __cplusplus
 extern "C" {
 #endif

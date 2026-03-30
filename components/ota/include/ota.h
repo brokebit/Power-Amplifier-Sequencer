@@ -4,15 +4,6 @@
 
 #include "esp_err.h"
 
-/* =========================================================
- * ota.h -- OTA firmware update manager
- *
- * Provides HTTPS OTA update from GitHub Releases or direct
- * URL, with rollback support.  NVS-backed repo configuration.
- *
- * Public API uses app_ota_ prefix.
- * ========================================================= */
-
 #ifdef __cplusplus
 extern "C" {
 #endif

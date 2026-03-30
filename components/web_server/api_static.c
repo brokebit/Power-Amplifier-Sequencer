@@ -112,8 +112,8 @@ void web_register_api_static(httpd_handle_t server)
 {
     /* Wildcard catch-all — must be registered LAST so API routes match first */
     const httpd_uri_t static_uri = {
-        .uri ="/*",
-        .method =HTTP_GET,
+        .uri = "/*",
+        .method = HTTP_GET,
         .handler = static_file_handler,
     };
     httpd_register_uri_handler(server, &static_uri);

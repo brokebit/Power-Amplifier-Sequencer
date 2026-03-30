@@ -4,18 +4,6 @@
 
 #include "driver/i2c_master.h"
 
-/* =========================================================
- * ads1115.h — ADS1115 16-bit ADC I2C driver
- *
- * Uses the ESP-IDF v5.x i2c_master API.
- * Each handle wraps one ADS1115 device on a shared bus.
- *
- * ALERT/RDY is configured as a conversion-ready signal
- * (Hi_thresh MSB=1, Lo_thresh MSB=0). The caller owns the
- * GPIO ISR for the ALERT pin and uses it to synchronise
- * reads with ads1115_read_raw().
- * ========================================================= */
-
 #ifdef __cplusplus
 extern "C" {
 #endif
