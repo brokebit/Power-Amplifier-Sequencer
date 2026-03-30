@@ -328,19 +328,38 @@
 
   var LOG_LEVELS = ['off', 'error', 'warn', 'info', 'debug', 'verbose'];
 
+  var LANGUAGES = [
+    { code: 'en', name: 'English' },
+    { code: 'pl', name: 'Polski' },
+    { code: 'ru', name: '\u0420\u0443\u0441\u0441\u043a\u0438\u0439' }
+  ];
+
   function buildSystem() {
     var container = document.getElementById('system-content');
     if (!container || sysBuilt) return;
     sysBuilt = true;
+
+    var curLang = I18n.currentLang() || 'en';
 
     var logOpts = LOG_LEVELS.map(function (l) {
       var sel = l === 'info' ? ' selected' : '';
       return '<option value="' + l + '"' + sel + '>' + l.charAt(0).toUpperCase() + l.slice(1) + '</option>';
     }).join('');
 
+    var langOpts = LANGUAGES.map(function (l) {
+      var sel = l.code === curLang ? ' selected' : '';
+      return '<option value="' + l.code + '"' + sel + '>' + l.name + '</option>';
+    }).join('');
+
     container.innerHTML =
       /* Firmware info */
       '<div id="sys-info" class="text-sm space-y-1 mb-4"></div>' +
+
+      /* Language */
+      '<div class="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-x-3 gap-y-2 items-center mb-4">' +
+        '<label class="text-sm" data-i18n="system.language">' + I18n.t('system.language') + '</label>' +
+        '<select id="sys-language" class="bg-bg-primary text-text-primary border border-accent rounded px-2 py-1 text-sm w-40">' + langOpts + '</select>' +
+      '</div>' +
 
       /* Log level */
       '<div class="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-x-3 gap-y-2 items-center mb-4">' +
@@ -356,6 +375,10 @@
       '<div>' +
         '<button id="sys-reboot-btn" class="px-3 py-1.5 bg-danger text-white rounded text-sm font-medium hover:opacity-90 transition-opacity" data-i18n="system.reboot">' + I18n.t('system.reboot') + '</button>' +
       '</div>';
+
+    document.getElementById('sys-language').addEventListener('change', function () {
+      I18n.load(this.value);
+    });
 
     document.getElementById('sys-log-apply').addEventListener('click', function () {
       var level = document.getElementById('sys-log-level').value;

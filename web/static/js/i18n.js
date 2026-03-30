@@ -48,6 +48,7 @@
     init: init,
     load: loadLanguage,
     t: t,
-    apply: applyTranslations
+    apply: applyTranslations,
+    currentLang: function () { return currentLang; }
   };
 })();
