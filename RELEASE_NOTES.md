@@ -1,5 +1,28 @@
 # Release Notes
 
+## v1.2.0
+
+### Bug Fixes
+
+**HTTP: static file connections exhaust socket pool, blocking WebSocket**
+
+The ESP-IDF HTTP server is configured with `max_open_sockets=7`. Browser requests for static assets (HTML, CSS, JS, fonts) used HTTP keep-alive by default, holding connections open after the response completed. A typical page load fetches 8+ files, saturating all available sockets before the browser could upgrade one to a WebSocket. The dashboard would render but the WS connection dot stayed red — no state updates, no relay control.
+
+Fixed by adding `Connection: close` to all static file responses in `api_static.c`. Each static response now completes and releases its socket immediately, leaving a socket available for the WebSocket upgrade.
+
+**Sequencer: reconcile loop never reaches steady TX or RX state**
+
+After a relay sequence completed, the reconcile loop re-reads the PTT GPIO to check whether the hardware state matches the FSM direction. The condition `ptt && s_state != SEQ_STATE_TX` was used to detect a mismatch, but `s_state` was still `SEQ_STATE_SEQUENCING_TX` at that point — so the check was always true, causing the sequencer to immediately re-run the TX sequence in an infinite loop. The FSM never promoted to `SEQ_STATE_TX` or `SEQ_STATE_RX`, and the sequencer reported `SEQ_TX` or `SEQ_RX` indefinitely.
+
+Fixed by tracking the direction of the last completed sequence (`sequenced_to_tx`) instead of comparing against the target steady state. The reconcile loop now checks whether the GPIO agrees with the direction just sequenced and only re-sequences if they disagree. When they match, the FSM promotes to the correct steady state.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `components/web_server/api_static.c` | Added `Connection: close` header to all static file responses |
+| `components/sequencer/sequencer.c` | Fixed reconcile loop condition to use direction-based check instead of state equality |
+
 ## v1.1.6
 
 ### Bug Fixes

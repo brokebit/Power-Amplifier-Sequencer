@@ -9,8 +9,10 @@
   var socket = null;
   var listeners = [];
   var lastState = null;
+  var lastUpdateTime = 0;
   var reconnectDelay = RECONNECT_BASE;
   var reconnectTimer = null;
+  var staleTimer = null;
   var connState = 'disconnected'; /* disconnected | connected | reconnecting */
 
   function updateDot() {
@@ -29,13 +31,58 @@
     }
   }
 
+  function updateStaleTimestamp() {
+    var el = document.getElementById('ws-last-update');
+    if (!el) return;
+    if (!lastUpdateTime) { el.textContent = ''; return; }
+    var ago = Math.round((Date.now() - lastUpdateTime) / 1000);
+    el.textContent = ago + 's ago';
+  }
+
+  function setStale(stale) {
+    var dashboard = document.getElementById('tab-content-dashboard');
+    if (dashboard) {
+      dashboard.classList.toggle('stale', stale);
+    }
+
+    var banner = document.getElementById('conn-banner');
+    if (banner) {
+      banner.classList.toggle('hidden', !stale);
+    }
+
+    var lastEl = document.getElementById('ws-last-update');
+    if (lastEl) {
+      lastEl.classList.toggle('hidden', !stale);
+    }
+
+    if (stale) {
+      if (!staleTimer) {
+        staleTimer = setInterval(updateStaleTimestamp, 1000);
+      }
+      updateStaleTimestamp();
+    } else {
+      if (staleTimer) {
+        clearInterval(staleTimer);
+        staleTimer = null;
+      }
+    }
+  }
+
   function setConnState(state) {
+    var wasConnected = connState === 'connected';
     connState = state;
     updateDot();
+
+    if (state === 'connected') {
+      setStale(false);
+    } else if (wasConnected) {
+      setStale(true);
+    }
   }
 
   function dispatch(state) {
     lastState = state;
+    lastUpdateTime = Date.now();
     for (var i = 0; i < listeners.length; i++) {
       try { listeners[i](state); } catch (e) {
         console.error('WS listener error:', e);

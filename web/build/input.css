@@ -27,4 +27,9 @@
   .peer:checked ~ .relay-track::after {
     @apply translate-x-3.5 bg-white;
   }
+
+  /* Stale dashboard state — reduced opacity when WS disconnected */
+  .stale > * {
+    @apply opacity-60 pointer-events-none;
+  }
 }

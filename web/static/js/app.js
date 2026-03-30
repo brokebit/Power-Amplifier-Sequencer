@@ -19,6 +19,11 @@
     document.querySelectorAll('[id^="tab-content-"]').forEach(function (el) {
       el.classList.toggle('hidden', el.id !== 'tab-content-' + name);
     });
+    if (name === 'config') {
+      SeqEditor.loadConfig();
+      Config.loadConfig();
+      WiFi.loadStatus();
+    }
   }
 
   /* ---- API helpers ----------------------------------------------------- */
@@ -46,7 +51,9 @@
           throw new Error(data.error || 'HTTP ' + resp.status);
         });
       }
-      return resp.json();
+      return resp.json().then(function (body) {
+        return body.data || body;
+      });
     });
   }
 
@@ -64,14 +71,59 @@
     }[type] || 'bg-accent';
 
     var el = document.createElement('div');
-    el.className = 'px-4 py-2 rounded shadow-lg text-white text-sm transition-opacity ' + colorClass;
+    el.className = 'px-4 py-2 rounded shadow-lg text-white text-sm cursor-pointer transition-opacity ' + colorClass;
     el.textContent = message;
     container.appendChild(el);
 
-    setTimeout(function () {
+    var dismiss = function () {
       el.classList.add('opacity-0');
       setTimeout(function () { el.remove(); }, 300);
-    }, 5000);
+    };
+    el.addEventListener('click', dismiss);
+
+    var delay = type === 'error' ? 8000 : 5000;
+    setTimeout(dismiss, delay);
+  }
+
+  /* ---- Confirm dialog --------------------------------------------------- */
+
+  var confirmResolve = null;
+
+  function showConfirm(message) {
+    return new Promise(function (resolve) {
+      confirmResolve = resolve;
+      var overlay = document.getElementById('confirm-overlay');
+      var msg = document.getElementById('confirm-message');
+      if (!overlay || !msg) { resolve(false); return; }
+      msg.textContent = message;
+      overlay.classList.remove('hidden');
+    });
+  }
+
+  function initConfirm() {
+    var overlay = document.getElementById('confirm-overlay');
+    var okBtn = document.getElementById('confirm-ok');
+    var cancelBtn = document.getElementById('confirm-cancel');
+    if (!overlay) return;
+
+    function close(result) {
+      overlay.classList.add('hidden');
+      if (confirmResolve) {
+        confirmResolve(result);
+        confirmResolve = null;
+      }
+    }
+
+    okBtn.addEventListener('click', function () { close(true); });
+    cancelBtn.addEventListener('click', function () { close(false); });
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) close(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
+        close(false);
+      }
+    });
   }
 
   /* ---- Init ------------------------------------------------------------ */
@@ -80,15 +132,20 @@
     Theme.init();
     I18n.init();
     initTabs();
+    initConfirm();
     switchTab('dashboard');
     WS.init();
     Dashboard.init();
+    SeqEditor.init();
+    Config.init();
+    WiFi.init();
   });
 
   window.App = {
     switchTab: switchTab,
     apiPost: apiPost,
     apiGet: apiGet,
-    toast: toast
+    toast: toast,
+    confirm: showConfirm
   };
 })();
