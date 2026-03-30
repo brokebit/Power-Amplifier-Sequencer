@@ -2,6 +2,74 @@
 
 ## v1.2.0
 
+### New Feature: Web Interface
+
+Full browser-based UI for the PA sequencer, served from the ESP32's SPIFFS partition. No app install or CLI access needed — connect to the device's IP and manage everything from a phone, tablet, or desktop browser.
+
+**Build system**: Tailwind CSS standalone CLI (auto-downloaded, no Node.js required). `./web/build/build.sh` produces gzipped static assets in `data/`. Total build output: ~108 KB, well within the ~1 MB SPIFFS budget.
+
+**Dashboard tab** — real-time monitoring via WebSocket (250 ms server push):
+
+- PTT state badge (RX/TX/Sequencing/Fault) with color-coded background and pulse animation during sequencing
+- Fault banner with fault type and one-click Clear Fault button
+- Relay status row — 6 labeled toggle buttons, interactive only in RX state, with optimistic UI and server-driven state
+- FWD and REF power meters (Chart.js horizontal bars) with numeric readout and auto-scaling peak tracking
+- SWR meter with green/yellow/red color zones based on configured threshold
+- Temperature chart (Chart.js line) with two datasets, selectable history window (5 min to 1 hour), and circular buffer storing up to 1 hour of data
+- WiFi signal icon in header bar with RSSI tooltip, click navigates to WiFi settings
+
+**Configuration tab** — all device settings editable from the browser:
+
+- **Sequence editor** — side-by-side TX/RX step lists with SortableJS drag-to-reorder, relay/state/delay fields, add/delete steps, pending changes indicator, and Apply button (gated on RX state)
+- **Thresholds & Calibration** — SWR threshold, temperature thresholds, PA relay ID, power cal factors, thermistor cal values. Edit-on-blur with green/red flash feedback
+- **Relay names** — 6 text inputs, changes propagate to dashboard labels and sequence editor dropdowns via WebSocket
+- **WiFi** — connection status with signal bars, SSID/password form, network scan with click-to-populate, auto-connect toggle, disconnect, erase credentials
+- **OTA** — firmware version/partition/app state display, editable GitHub repo field, Update to Latest (fire-and-forget with automatic reboot)
+- **System** — firmware info, log level dropdown with tag filter, reboot with confirmation
+- **Collapsible sections** — all config sections collapse/expand with state persisted in localStorage
+- **Save and Apply / Reset Defaults** — NVS persistence and factory reset with themed confirmation dialog
+
+**Theming**: Dark (default) and light themes via CSS custom properties. Theme toggle in header bar, selection persisted in localStorage. Tailwind references theme variables so switching works without rebuilding CSS.
+
+**Internationalization**: All UI strings in `web/static/lang/en.json` (~85 keys). `data-i18n` attribute scanning with `I18n.t()` lookup for dynamic strings. Adding a language requires only a new JSON file.
+
+**Error handling & polish**:
+
+- Toast notifications (top-right, click to dismiss, 8 s for errors / 5 s otherwise)
+- Connection lost banner on WebSocket disconnect
+- Stale data indication — dashboard dims with reduced opacity and disabled interaction, "Xs ago" timestamp updates live
+- Themed confirmation dialog (Cancel/Confirm, Escape/click-outside to dismiss) replacing native `confirm()`
+- WebSocket reconnect with exponential backoff (1 s → 30 s cap), status dot in header (green/amber/red)
+
+**Files added**:
+
+| File | Purpose |
+|------|---------|
+| `web/build/build.sh` | Master build script (Tailwind CLI, copy, gzip, size report) |
+| `web/build/tailwind.config.js` | Tailwind config with CSS variable color references |
+| `web/build/input.css` | Tailwind input directives + stale data styles |
+| `web/static/index.html` | Page skeleton — header, tabs, dashboard widgets, config sections, modals |
+| `web/static/js/app.js` | Entry point, tab switching, API helpers, toast, confirm dialog |
+| `web/static/js/ws.js` | WebSocket manager with reconnect, listener pattern, stale data handling |
+| `web/static/js/dashboard.js` | PTT badge, fault banner, relay toggles, power/SWR/temp charts, WiFi icon |
+| `web/static/js/seq-editor.js` | TX/RX sequence editor with SortableJS drag reorder |
+| `web/static/js/config.js` | Thresholds, calibration, relay names, OTA, system settings |
+| `web/static/js/wifi.js` | WiFi status, credentials, scan, connect/disconnect |
+| `web/static/js/theme.js` | Dark/light theme switching with localStorage persistence |
+| `web/static/js/i18n.js` | Internationalization — JSON language files, DOM scanning, `t()` lookup |
+| `web/static/lang/en.json` | English UI strings (~85 keys) |
+| `web/static/themes/dark.css` | Dark theme — CSS custom properties |
+| `web/static/themes/light.css` | Light theme — CSS custom properties |
+| `web/static/lib/chart.min.js` | Chart.js (vendored) |
+| `web/static/lib/sortable.min.js` | SortableJS (vendored) |
+| `web/README.md` | Web interface documentation |
+
+**Firmware changes for web serving**:
+
+| File | Change |
+|------|---------|
+| `components/web_server/api_static.c` | Gzip-aware file serving — checks for `.gz` variant, sets `Content-Encoding: gzip` |
+
 ### Bug Fixes
 
 **HTTP: static file connections exhaust socket pool, blocking WebSocket**
