@@ -9,3 +9,4 @@ claude
 tests/.venv
 tests/__pycache__
 tests/.pytest_cache
+web/build/.bin/

@@ -1,0 +1,13 @@
+:root {
+  --color-bg-primary: #f3f4f6;
+  --color-bg-secondary: #ffffff;
+  --color-text-primary: #1f2937;
+  --color-text-secondary: #6b7280;
+  --color-accent: #3b82f6;
+  --color-success: #16a34a;
+  --color-warning: #ca8a04;
+  --color-danger: #dc2626;
+  --color-rx: #16a34a;
+  --color-tx: #dc2626;
+  --color-sequencing: #d97706;
+}

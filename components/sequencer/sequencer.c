@@ -368,23 +368,26 @@ void sequencer_task(void *arg)
 reconcile:
         for (;;) {
             bool ptt = (gpio_get_level(HW_PTT_GPIO) == 0);
+            bool sequenced_to_tx = (s_state == SEQ_STATE_SEQUENCING_TX);
 
-            if (ptt && s_state != SEQ_STATE_TX) {
-                ESP_LOGW(TAG, "PTT still active after sequence — sequencing TX");
+            if (ptt && !sequenced_to_tx) {
+                /* PTT asserted but we just sequenced to RX — reverse */
+                ESP_LOGW(TAG, "PTT re-asserted after RX sequence — sequencing TX");
                 s_state = SEQ_STATE_SEQUENCING_TX;
                 system_state_set_sequencer(s_state, s_fault);
                 if (!run_sequence(s_cfg.tx_steps, s_cfg.tx_num_steps)) {
                     break; /* fault re-queued */
                 }
-            } else if (!ptt && s_state != SEQ_STATE_RX) {
-                ESP_LOGW(TAG, "PTT released after sequence — sequencing RX");
+            } else if (!ptt && sequenced_to_tx) {
+                /* PTT released but we just sequenced to TX — reverse */
+                ESP_LOGW(TAG, "PTT released after TX sequence — sequencing RX");
                 s_state = SEQ_STATE_SEQUENCING_RX;
                 system_state_set_sequencer(s_state, s_fault);
                 if (!run_sequence(s_cfg.rx_steps, s_cfg.rx_num_steps)) {
                     break; /* fault re-queued */
                 }
             } else {
-                /* GPIO matches desired state — settle */
+                /* GPIO matches the direction we sequenced — settle */
                 s_state = ptt ? SEQ_STATE_TX : SEQ_STATE_RX;
                 system_state_set_sequencer(s_state, s_fault);
                 ESP_LOGI(TAG, "%s active", ptt ? "TX" : "RX");

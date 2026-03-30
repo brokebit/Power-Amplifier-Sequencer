@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PA Sequencer</title>
+<link rel="stylesheet" href="/css/app.css">
+<link rel="stylesheet" href="/themes/dark.css" id="theme-dark">
+<link rel="stylesheet" href="/themes/light.css" id="theme-light" disabled>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen transition-colors">
+
+  <!-- Header Bar -->
+  <header class="bg-bg-secondary border-b border-accent px-4 py-2 flex items-center justify-between">
+    <!-- Left: Theme toggle -->
+    <button id="theme-toggle" class="p-2 rounded hover:bg-accent/20 transition-colors" aria-label="Toggle theme">
+      <!-- Sun icon (visible in dark mode — click to go light) -->
+      <svg id="icon-sun" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      </svg>
+      <!-- Moon icon (visible in light mode — click to go dark) -->
+      <svg id="icon-moon" class="w-5 h-5 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+    </button>
+
+    <!-- Center: Title -->
+    <h1 class="text-lg font-bold tracking-wide" data-i18n="app.title">PA Sequencer</h1>
+
+    <!-- Right: WS status dot + WiFi icon -->
+    <div class="flex items-center gap-3">
+      <span id="ws-dot" class="w-2.5 h-2.5 rounded-full bg-danger" title="Disconnected"></span>
+      <button id="wifi-icon-btn" class="p-1 rounded hover:bg-accent/20 transition-colors" aria-label="WiFi status">
+        <svg id="wifi-icon" class="w-5 h-5 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+          <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+          <circle cx="12" cy="20" r="1" fill="currentColor"></circle>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Fault Banner (hidden by default) -->
+  <div id="fault-banner" class="hidden bg-danger text-white px-4 py-2 flex items-center justify-between font-semibold">
+    <span id="fault-text"></span>
+    <button id="fault-clear" class="ml-4 px-3 py-1 bg-white/20 rounded text-sm hover:bg-white/30 transition-colors" data-i18n="fault.clear">Clear Fault</button>
+  </div>
+
+  <!-- Tab Bar -->
+  <nav class="bg-bg-secondary border-b border-accent flex">
+    <button class="tab-btn tab-active" data-tab="dashboard" data-i18n="dashboard.title">Dashboard</button>
+    <button class="tab-btn" data-tab="config" data-i18n="config.title">Configuration</button>
+  </nav>
+
+  <!-- Dashboard Tab -->
+  <main id="tab-content-dashboard" class="p-4 max-w-6xl mx-auto">
+    <!-- Row 1: PTT Badge + Relay Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div id="ptt-badge-container" class="bg-bg-secondary rounded-lg p-4">
+        <p class="text-text-secondary text-sm" data-i18n="general.loading">Loading...</p>
+      </div>
+      <div id="relay-row-container" class="bg-bg-secondary rounded-lg p-4">
+        <h3 class="text-sm font-medium text-text-secondary mb-2" data-i18n="dashboard.relay_status">Relay Status</h3>
+        <div id="relay-row" class="grid grid-cols-3 sm:grid-cols-6 gap-2"></div>
+      </div>
+    </div>
+
+    <!-- Row 2: Power Meters + SWR -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+      <div id="fwd-power-container" class="bg-bg-secondary rounded-lg p-4">
+        <h3 class="text-sm font-medium text-text-secondary mb-2" data-i18n="dashboard.fwd_power">FWD Power</h3>
+        <span id="fwd-readout" class="text-xl font-bold">0 W</span>
+        <div class="mt-2 h-6"><canvas id="fwd-chart"></canvas></div>
+      </div>
+      <div id="ref-power-container" class="bg-bg-secondary rounded-lg p-4">
+        <h3 class="text-sm font-medium text-text-secondary mb-2" data-i18n="dashboard.ref_power">REF Power</h3>
+        <span id="ref-readout" class="text-xl font-bold">0 W</span>
+        <div class="mt-2 h-6"><canvas id="ref-chart"></canvas></div>
+      </div>
+      <div id="swr-container" class="bg-bg-secondary rounded-lg p-4">
+        <h3 class="text-sm font-medium text-text-secondary mb-2" data-i18n="dashboard.swr">SWR</h3>
+        <span id="swr-readout" class="text-xl font-bold">1.0:1</span>
+        <div class="mt-2 h-6"><canvas id="swr-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 3: Temperature Chart -->
+    <div class="mt-4">
+      <div id="temp-chart-container" class="bg-bg-secondary rounded-lg p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-medium text-text-secondary" data-i18n="dashboard.temp_chart">Temperature</h3>
+          <select id="temp-history-select" class="text-sm bg-bg-primary text-text-primary border border-accent rounded px-2 py-1">
+            <option value="300">5 min</option>
+            <option value="900" selected>15 min</option>
+            <option value="1800">30 min</option>
+            <option value="3600">1 hour</option>
+          </select>
+        </div>
+        <div class="h-48"><canvas id="temp-chart"></canvas></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Configuration Tab -->
+  <main id="tab-content-config" class="p-4 max-w-4xl mx-auto hidden">
+    <!-- Sequences Section -->
+    <section id="config-sequences" class="bg-bg-secondary rounded-lg p-4 mb-4">
+      <h2 class="text-lg font-semibold mb-3" data-i18n="config.sequences">Sequences</h2>
+    </section>
+
+    <!-- Thresholds Section -->
+    <section id="config-thresholds" class="bg-bg-secondary rounded-lg p-4 mb-4">
+      <h2 class="text-lg font-semibold mb-3" data-i18n="config.thresholds">Thresholds &amp; Calibration</h2>
+    </section>
+
+    <!-- Relay Names Section -->
+    <section id="config-relay-names" class="bg-bg-secondary rounded-lg p-4 mb-4">
+      <h2 class="text-lg font-semibold mb-3" data-i18n="config.relay_names">Relay Names</h2>
+    </section>
+
+    <!-- WiFi Section -->
+    <section id="config-wifi" class="bg-bg-secondary rounded-lg p-4 mb-4">
+      <h2 class="text-lg font-semibold mb-3" data-i18n="wifi.title">WiFi</h2>
+    </section>
+
+    <!-- OTA Section -->
+    <section id="config-ota" class="bg-bg-secondary rounded-lg p-4 mb-4">
+      <h2 class="text-lg font-semibold mb-3" data-i18n="ota.title">OTA Update</h2>
+    </section>
+
+    <!-- System Section -->
+    <section id="config-system" class="bg-bg-secondary rounded-lg p-4 mb-4">
+      <h2 class="text-lg font-semibold mb-3" data-i18n="system.title">System</h2>
+    </section>
+  </main>
+
+  <!-- Toast container (fixed bottom-right) -->
+  <div id="toast-container" class="fixed bottom-4 right-4 flex flex-col gap-2 z-50"></div>
+
+  <!-- Scripts (load order matters: dependencies first, app.js last) -->
+  <script src="/lib/chart.min.js"></script>
+  <script src="/js/i18n.js"></script>
+  <script src="/js/theme.js"></script>
+  <script src="/js/ws.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

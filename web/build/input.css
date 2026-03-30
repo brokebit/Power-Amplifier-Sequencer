@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .tab-btn {
+    @apply px-6 py-2 font-medium transition-colors border-b-2 border-transparent text-text-secondary;
+  }
+  .tab-btn:hover {
+    @apply text-text-primary;
+  }
+  .tab-btn.tab-active {
+    @apply text-text-primary border-accent;
+  }
+
+  /* Toggle switch */
+  .relay-switch {
+    @apply relative inline-block w-8 h-4 cursor-pointer;
+  }
+  .relay-track {
+    @apply absolute inset-0 rounded-full bg-bg-primary border border-text-secondary transition-colors;
+  }
+  .relay-track::after {
+    content: '';
+    @apply absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full bg-text-secondary transition-transform;
+  }
+  .peer:checked ~ .relay-track::after {
+    @apply translate-x-3.5 bg-white;
+  }
+}

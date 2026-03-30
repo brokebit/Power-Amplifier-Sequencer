@@ -73,13 +73,47 @@ static esp_err_t static_file_handler(httpd_req_t *req)
         return web_json_error(req, 403, "forbidden");
     }
 
-    FILE *f = fopen(filepath, "r");
+    /* Check if client accepts gzip encoding */
+    char encoding_buf[64];
+    bool client_accepts_gzip = false;
+    if (httpd_req_get_hdr_value_str(req, "Accept-Encoding",
+                                     encoding_buf, sizeof(encoding_buf)) == ESP_OK) {
+        client_accepts_gzip = (strstr(encoding_buf, "gzip") != NULL);
+    }
+
+    /* Try gzipped version first */
+    FILE *f = NULL;
+    bool serving_gzip = false;
+    if (client_accepts_gzip) {
+        char gz_path[132];
+        snprintf(gz_path, sizeof(gz_path), "%s.gz", filepath);
+        f = fopen(gz_path, "rb");
+        if (f) {
+            serving_gzip = true;
+        }
+    }
+
+    /* Fall back to uncompressed file */
+    if (!f) {
+        f = fopen(filepath, "rb");
+    }
+
     if (!f) {
         ESP_LOGD(TAG, "File not found: %s", filepath);
         return web_json_error(req, 404, "file not found");
     }
 
+    /* Content-Type based on original (non-.gz) path */
     httpd_resp_set_type(req, get_mime_type(filepath));
+
+    if (serving_gzip) {
+        httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+    }
+
+    /* Close connection after response — frees the socket for WebSocket.
+     * Without this, browser keep-alive holds all sockets and the WS
+     * upgrade request has no available slot. */
+    httpd_resp_set_hdr(req, "Connection", "close");
 
     /* Cache static assets (not HTML) */
     const char *dot = strrchr(filepath, '.');

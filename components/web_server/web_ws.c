@@ -88,7 +88,7 @@ static void ws_push_task(void *arg)
     (void)arg;
 
     for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(250));
 
         if (s_push_stop) {
             s_push_task = NULL;
