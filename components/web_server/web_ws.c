@@ -18,6 +18,7 @@ static int s_client_fds[WS_MAX_CLIENTS];
 static SemaphoreHandle_t s_mutex;
 static httpd_handle_t s_server;
 static TaskHandle_t s_push_task;
+static volatile bool s_push_stop;
 
 /* ---- client tracking ---------------------------------------------------- */
 
@@ -89,6 +90,11 @@ static void ws_push_task(void *arg)
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(500));
 
+        if (s_push_stop) {
+            s_push_task = NULL;
+            vTaskDelete(NULL);  /* self-delete — guaranteed immediate */
+        }
+
         /* Build state JSON */
         cJSON *state = web_build_state_json();
         if (!state) {
@@ -157,8 +163,13 @@ void ws_init(httpd_handle_t server)
 void ws_stop(void)
 {
     if (s_push_task) {
-        vTaskDelete(s_push_task);
-        s_push_task = NULL;
+        s_push_stop = true;
+        /* Wait for the task to see the flag and self-delete.
+         * Worst case is one full push cycle (~500ms) plus margin. */
+        while (s_push_task != NULL) {
+            vTaskDelay(pdMS_TO_TICKS(50));
+        }
+        s_push_stop = false;
     }
     if (s_mutex) {
         vSemaphoreDelete(s_mutex);

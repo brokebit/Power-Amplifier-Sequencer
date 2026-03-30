@@ -1,5 +1,75 @@
 # Release Notes
 
+## v1.1.6
+
+### Bug Fixes
+
+**WebSocket: crash during OTA update due to async task deletion**
+
+`ota update latest` intermittently crashed with `assert failed: xQueueSemaphoreTake queue.c:1709 (( pxQueue ))`. The OTA SPIFFS update path calls `web_server_stop()`, which called `vTaskDelete()` on the WebSocket push task from the OTA task context. On ESP-IDF, `vTaskDelete()` of another task is asynchronous — the target task is not guaranteed to be dead when the call returns. `ws_stop()` then immediately deleted `s_mutex` with `vSemaphoreDelete()`. If the push task was mid-cycle or about to call `xSemaphoreTake(s_mutex, ...)`, it hit a NULL or dangling handle.
+
+Fixed by replacing the external `vTaskDelete()` with cooperative shutdown. `ws_stop()` sets a `volatile bool` flag; the push task checks it at the top of each 500ms cycle, clears its own task handle, and calls `vTaskDelete(NULL)` (self-delete is synchronous and immediate). `ws_stop()` polls until the handle goes NULL before destroying the mutex.
+
+**Web API: stack buffer overflow in POST /api/seq**
+
+A `POST /api/seq` request with more than 8 steps would overflow the stack-local `new_steps[SEQ_MAX_STEPS]` buffer before `config_set_sequence()` had a chance to reject the count. Added a bounds check on the JSON array size before the parsing loop.
+
+**Config: relay name length rejection instead of truncation**
+
+`config_set_relay_name()` rejected names >= `CFG_RELAY_NAME_LEN` (16 chars) with an error, but the existing contract and test suite expected long names to be silently truncated. Removed the length-rejection guard — the `strncpy` + null-termination already handled truncation correctly.
+
+### Improvements
+
+**ESP-IDF style guide compliance**
+
+Systematic cleanup across all components following an automated style review:
+
+- Added missing standard library includes (`<stdlib.h>`, `<stdio.h>`) in 3 web_server files that relied on transitive headers
+- Fixed missing spaces around `=` in designated initializers across all 10 `api_*.c` files (29 occurrences)
+- Corrected include group ordering in `ota.c`, `web_server.c`, `web_ws.c`, `relays.c`
+- Moved `web_build_state_json()` from a forward declaration in `web_ws.c` to `web_json.h` for compile-time signature checking
+- Removed column alignment in lookup tables and static variable blocks per style guide recommendation
+- Removed decorative comment blocks between `#pragma once`/includes and `extern "C"` guards in 11 headers
+- Added braces to braceless `if` statements in `ota.c`
+- Standardised infinite loop style to `for (;;)` in `web_ws.c` and `ota.c`
+- Removed dead `root` cJSON allocation in WebSocket push task
+- Added `<stddef.h>` to `config.h` for portable `size_t`
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `components/web_server/web_ws.c` | Cooperative shutdown for push task; removed dead cJSON allocation; added `<stdlib.h>`; `while(1)` → `for(;;)` |
+| `components/web_server/api_seq.c` | Bounds check on step count before parsing loop |
+| `components/config/config.c` | Removed relay name length rejection; column alignment cleanup |
+| `components/config/include/config.h` | Added `<stddef.h>`; removed decorative comment block; column alignment cleanup |
+| `components/web_server/web_json.h` | Added `web_build_state_json()` declaration |
+| `components/web_server/web_json.c` | Added `<stdio.h>` |
+| `components/web_server/api_wifi.c` | Added `<stdlib.h>`; initializer spacing |
+| `components/web_server/api_state.c` | Initializer spacing |
+| `components/web_server/api_config.c` | Initializer spacing |
+| `components/web_server/api_relay.c` | Initializer spacing |
+| `components/web_server/api_fault.c` | Initializer spacing |
+| `components/web_server/api_adc.c` | Initializer spacing |
+| `components/web_server/api_ota.c` | Initializer spacing |
+| `components/web_server/api_system.c` | Initializer spacing |
+| `components/web_server/api_static.c` | Initializer spacing |
+| `components/web_server/web_server.c` | Include group separation |
+| `components/ota/ota.c` | Include group ordering; braceless ifs; `while(1)` → `for(;;)` |
+| `components/relays/relays.c` | Include group separation |
+| `components/sequencer/sequencer.c` | Column alignment cleanup |
+| `components/sequencer/include/sequencer.h` | Column alignment cleanup; removed decorative comment block |
+| `components/monitor/include/monitor.h` | Removed decorative comment block |
+| `components/system_state/include/system_state.h` | Removed decorative comment block |
+| `components/relays/include/relays.h` | Removed decorative comment block |
+| `components/ads1115/include/ads1115.h` | Removed decorative comment block |
+| `components/ads1115/ads1115.c` | Column alignment cleanup |
+| `components/buttons/include/buttons.h` | Removed decorative comment block |
+| `components/ptt/include/ptt.h` | Removed decorative comment block |
+| `components/hw_config/include/hw_config.h` | Removed decorative comment block |
+| `components/ota/include/ota.h` | Removed decorative comment block |
+| `components/wifi_sta/include/wifi_sta.h` | Removed decorative comment block |
+
 ## v1.1.5
 
 ### Refactor: Config Ownership & Service Layer
