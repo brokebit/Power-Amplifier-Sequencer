@@ -58,6 +58,16 @@
 
    Alternatively, create the release through the GitHub web UI and drag/drop the files.
 
+### Re-Upload assets to an existing release
+
+   ```bash
+   gh release upload v1.2.0 \
+      .pio/build/esp32-s3-devkitm-1/firmware.bin \
+      .pio/build/esp32-s3-devkitm-1/combined.bin \
+      .pio/build/esp32-s3-devkitm-1/spiffs.bin \
+      --repo brokebit/Power-Amplifier-Sequencer \
+      --clobber 
+  ```
 ### Release assets
 
 Each release should contain three files:

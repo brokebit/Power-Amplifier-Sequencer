@@ -160,7 +160,7 @@ void ws_init(httpd_handle_t server)
     ESP_LOGI(TAG, "WebSocket push task started");
 }
 
-void ws_stop(void)
+void ws_stop_task(void)
 {
     if (s_push_task) {
         s_push_stop = true;
@@ -171,6 +171,10 @@ void ws_stop(void)
         }
         s_push_stop = false;
     }
+}
+
+void ws_stop_cleanup(void)
+{
     if (s_mutex) {
         vSemaphoreDelete(s_mutex);
         s_mutex = NULL;

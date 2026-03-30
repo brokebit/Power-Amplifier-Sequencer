@@ -8,7 +8,9 @@
 
 `ota update latest` intermittently crashed with `assert failed: xQueueSemaphoreTake queue.c:1709 (( pxQueue ))`. The OTA SPIFFS update path calls `web_server_stop()`, which called `vTaskDelete()` on the WebSocket push task from the OTA task context. On ESP-IDF, `vTaskDelete()` of another task is asynchronous — the target task is not guaranteed to be dead when the call returns. `ws_stop()` then immediately deleted `s_mutex` with `vSemaphoreDelete()`. If the push task was mid-cycle or about to call `xSemaphoreTake(s_mutex, ...)`, it hit a NULL or dangling handle.
 
-Fixed by replacing the external `vTaskDelete()` with cooperative shutdown. `ws_stop()` sets a `volatile bool` flag; the push task checks it at the top of each 500ms cycle, clears its own task handle, and calls `vTaskDelete(NULL)` (self-delete is synchronous and immediate). `ws_stop()` polls until the handle goes NULL before destroying the mutex.
+A second path to the same crash: `web_server_stop()` called `ws_stop()` (which deleted `s_mutex`) before `httpd_stop()`. When `httpd_stop()` closes all open sockets it fires the `ws_close_fd` callback for each WS client, which calls `ws_remove_client()` → `xSemaphoreTake(s_mutex, ...)` on the already-deleted mutex.
+
+Fixed with a three-phase shutdown: (1) `ws_stop_task()` cooperatively stops the push task — sets a `volatile bool` flag, the task checks it at the top of each 500ms cycle, clears its own handle, and calls `vTaskDelete(NULL)` (self-delete is synchronous); the caller polls until the handle goes NULL. (2) `httpd_stop()` closes all sockets — `ws_close_fd` callbacks run with the mutex still valid. (3) `ws_stop_cleanup()` deletes the mutex after all callbacks have completed.
 
 **Web API: stack buffer overflow in POST /api/seq**
 

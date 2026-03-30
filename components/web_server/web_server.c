@@ -110,9 +110,10 @@ esp_err_t web_server_stop(void)
         return ESP_OK;
     }
 
-    ws_stop();
-    httpd_stop(s_server);
+    ws_stop_task();         /* 1. stop push task (no more frame sends) */
+    httpd_stop(s_server);   /* 2. close sockets (ws_close_fd callbacks use mutex) */
     s_server = NULL;
+    ws_stop_cleanup();      /* 3. delete mutex (all callbacks done) */
 
     esp_vfs_spiffs_unregister("storage");
     ESP_LOGI(TAG, "HTTP server stopped");

@@ -18,9 +18,17 @@ extern "C" {
 void ws_init(httpd_handle_t server);
 
 /**
- * Stop the push task. Called during server shutdown.
+ * Stop the push task cooperatively.  Call before httpd_stop() so the
+ * task is not sending frames on a dead server.  The mutex remains
+ * valid for socket-close callbacks that httpd_stop() triggers.
  */
-void ws_stop(void);
+void ws_stop_task(void);
+
+/**
+ * Delete the WS mutex.  Call after httpd_stop() — all socket-close
+ * callbacks have fired by then and no code path needs the mutex.
+ */
+void ws_stop_cleanup(void);
 
 /**
  * Add a client socket fd to the tracking list.
