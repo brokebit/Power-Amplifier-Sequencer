@@ -25,13 +25,13 @@ Full browser-based UI for the PA sequencer, served from the ESP32's SPIFFS parti
 - **Relay names** — 6 text inputs, changes propagate to dashboard labels and sequence editor dropdowns via WebSocket
 - **WiFi** — connection status with signal bars, SSID/password form, network scan with click-to-populate, auto-connect toggle, disconnect, erase credentials
 - **OTA** — firmware version/partition/app state display, editable GitHub repo field, Update to Latest (fire-and-forget with automatic reboot)
-- **System** — firmware info, log level dropdown with tag filter, reboot with confirmation
+- **System** — firmware info, language selector (English/Polish/Russian), log level dropdown with tag filter, reboot with confirmation
 - **Collapsible sections** — all config sections collapse/expand with state persisted in localStorage
 - **Save and Apply / Reset Defaults** — NVS persistence and factory reset with themed confirmation dialog
 
 **Theming**: Dark (default) and light themes via CSS custom properties. Theme toggle in header bar, selection persisted in localStorage. Tailwind references theme variables so switching works without rebuilding CSS.
 
-**Internationalization**: All UI strings in `web/static/lang/en.json` (~85 keys). `data-i18n` attribute scanning with `I18n.t()` lookup for dynamic strings. Adding a language requires only a new JSON file.
+**Internationalization**: All UI strings driven by JSON language files (~85 keys each). Ships with English, Polish, and Russian. Language selector in the System section; selection persisted in localStorage. `data-i18n` attribute scanning with `I18n.t()` lookup for dynamic strings. Adding a language requires only a new JSON file.
 
 **Error handling & polish**:
 
@@ -58,6 +58,8 @@ Full browser-based UI for the PA sequencer, served from the ESP32's SPIFFS parti
 | `web/static/js/theme.js` | Dark/light theme switching with localStorage persistence |
 | `web/static/js/i18n.js` | Internationalization — JSON language files, DOM scanning, `t()` lookup |
 | `web/static/lang/en.json` | English UI strings (~85 keys) |
+| `web/static/lang/pl.json` | Polish UI strings |
+| `web/static/lang/ru.json` | Russian UI strings |
 | `web/static/themes/dark.css` | Dark theme — CSS custom properties |
 | `web/static/themes/light.css` | Light theme — CSS custom properties |
 | `web/static/lib/chart.min.js` | Chart.js (vendored) |
