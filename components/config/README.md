@@ -24,7 +24,9 @@ The entire struct is persisted as a single NVS blob under namespace `seq_cfg`, k
 | RX relay sequence    | `rx_steps[8]`, `rx_num_steps`                                 | R2 OFF, R1 OFF, R3 OFF (3 steps, 1000ms inter-step) | Ordered relay operations when transitioning to receive |
 | Fault thresholds     | `swr_fault_threshold`, `temp1_fault_threshold_c`, `temp2_fault_threshold_c` | 3.0 SWR, 65C, 65C | Limits that trigger the sequencer's fault/emergency shutdown path |
 | PA relay             | `pa_relay_id`                                                 | 2                           | Which relay `emergency_shutdown()` de-energises immediately |
-| Power calibration    | `fwd_power_cal_factor`, `ref_power_cal_factor`                | 1.0, 1.0                   | Scaling factors: P = cal_factor x V^2 |
+| Power calibration (FWD) | `fwd_slope_mv_per_db`, `fwd_intercept_dbm`, `fwd_coupling_db`, `fwd_attenuator_db` | -25.0, 0.0, 0.0, 0.0 | Log-linear detector: dBm = (V_mV / slope) + intercept, plus coupler and attenuator offsets |
+| Power calibration (REF) | `ref_slope_mv_per_db`, `ref_intercept_dbm`, `ref_coupling_db`, `ref_attenuator_db` | -25.0, 0.0, 0.0, 0.0 | Same as FWD, for the reflected power channel |
+| ADC divider          | `adc_r_top_ohms`, `adc_r_bottom_ohms`                         | 10000, 15000                | Resistor divider on ADC inputs: ratio = R_bottom / (R_top + R_bottom) |
 | Thermistor model     | `thermistor_beta`, `thermistor_r0_ohms`, `thermistor_r_series_ohms` | 3950, 100k, 100k    | NTC Steinhart-Hart beta model parameters for temperature conversion |
 | Relay display names  | `relay_names[6][16]`                                          | All empty (no aliases)      | Human-readable labels shown in CLI and web UI (e.g. "PA", "LNA") |
 
@@ -116,8 +118,16 @@ A string-keyed setter that accepts both key and value as strings, performs type 
 | `swr_threshold`   | float | 1.0     | 99.0       | `swr_fault_threshold`         |
 | `temp1_threshold` | float | 0.0     | 200.0      | `temp1_fault_threshold_c`     |
 | `temp2_threshold` | float | 0.0     | 200.0      | `temp2_fault_threshold_c`     |
-| `fwd_cal`         | float | 0.001   | 1000.0     | `fwd_power_cal_factor`        |
-| `ref_cal`         | float | 0.001   | 1000.0     | `ref_power_cal_factor`        |
+| `fwd_slope`       | float | -200.0  | 200.0      | `fwd_slope_mv_per_db`         |
+| `fwd_intercept`   | float | -100.0  | 100.0      | `fwd_intercept_dbm`           |
+| `fwd_coupling`    | float | -80.0   | 0.0        | `fwd_coupling_db`             |
+| `fwd_atten`       | float | 0.0     | 60.0       | `fwd_attenuator_db`           |
+| `ref_slope`       | float | -200.0  | 200.0      | `ref_slope_mv_per_db`         |
+| `ref_intercept`   | float | -100.0  | 100.0      | `ref_intercept_dbm`           |
+| `ref_coupling`    | float | -80.0   | 0.0        | `ref_coupling_db`             |
+| `ref_atten`       | float | 0.0     | 60.0       | `ref_attenuator_db`           |
+| `adc_r_top`       | float | 0.0     | 10000000.0 | `adc_r_top_ohms`              |
+| `adc_r_bottom`    | float | 0.0     | 10000000.0 | `adc_r_bottom_ohms`           |
 | `therm_beta`      | float | 1.0     | 100000.0   | `thermistor_beta`             |
 | `therm_r0`        | float | 1.0     | 10000000.0 | `thermistor_r0_ohms`          |
 | `therm_rseries`   | float | 1.0     | 10000000.0 | `thermistor_r_series_ohms`    |

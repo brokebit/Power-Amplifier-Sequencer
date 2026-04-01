@@ -46,6 +46,8 @@ cJSON *web_build_state_json(void)
 
     cJSON_AddNumberToObject(data, "fwd_w", ss.fwd_power_w);
     cJSON_AddNumberToObject(data, "ref_w", ss.ref_power_w);
+    cJSON_AddNumberToObject(data, "fwd_dbm", ss.fwd_power_dbm);
+    cJSON_AddNumberToObject(data, "ref_dbm", ss.ref_power_dbm);
     cJSON_AddNumberToObject(data, "swr", ss.swr);
     cJSON_AddNumberToObject(data, "temp1_c", ss.temp1_c);
     cJSON_AddNumberToObject(data, "temp2_c", ss.temp2_c);

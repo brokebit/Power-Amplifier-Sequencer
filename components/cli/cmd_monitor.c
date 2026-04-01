@@ -50,9 +50,10 @@ static int cmd_monitor_handler(int argc, char **argv)
             for (int i = 0; i < HW_RELAY_COUNT; i++) {
                 printf(",%d", (ss.relay_states >> i) & 1);
             }
-            printf(",%.1f,%.1f,%.1f,%.1f,%.1f\n",
-                   ss.fwd_power_w, ss.ref_power_w, ss.swr,
-                   ss.temp1_c, ss.temp2_c);
+            printf(",%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f\n",
+                   ss.fwd_power_dbm, ss.fwd_power_w,
+                   ss.ref_power_dbm, ss.ref_power_w,
+                   ss.swr, ss.temp1_c, ss.temp2_c);
         } else {
             /* Build relay string */
             char relays[32];
@@ -64,13 +65,14 @@ static int cmd_monitor_handler(int argc, char **argv)
             }
 
             printf("PTT:%-3s St:%-6s Flt:%-10s Rl:[%s] "
-                   "F:%.1fW R:%.1fW SWR:%.1f T1:%.1fC T2:%.1fC\n",
+                   "F:%.1fdBm/%.1fW R:%.1fdBm/%.1fW SWR:%.1f T1:%.1fC T2:%.1fC\n",
                    ss.ptt_active ? "ON" : "off",
                    seq_state_name(ss.seq_state),
                    seq_fault_name(ss.seq_fault),
                    relays,
-                   ss.fwd_power_w, ss.ref_power_w, ss.swr,
-                   ss.temp1_c, ss.temp2_c);
+                   ss.fwd_power_dbm, ss.fwd_power_w,
+                   ss.ref_power_dbm, ss.ref_power_w,
+                   ss.swr, ss.temp1_c, ss.temp2_c);
         }
 
         /* Check for keypress to stop — poll UART0 in small increments */

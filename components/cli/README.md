@@ -119,7 +119,7 @@ config save
 config defaults
 ```
 - `show` takes a `config_snapshot()` and prints the full `app_config_t` contents (thresholds, calibration, thermistor params, relay names, TX/RX sequences).
-- `set` delegates to `config_set_by_key()` which handles string-to-float/int conversion and range validation. Valid keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `fwd_cal`, `ref_cal`, `therm_beta`, `therm_r0`, `therm_rseries`, `pa_relay`.
+- `set` delegates to `config_set_by_key()` which handles string-to-float/int conversion and range validation. Valid keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `fwd_slope`, `fwd_intercept`, `fwd_coupling`, `fwd_atten`, `ref_slope`, `ref_intercept`, `ref_coupling`, `ref_atten`, `adc_r_top`, `adc_r_bottom`, `therm_beta`, `therm_r0`, `therm_rseries`, `pa_relay`.
 - `save` calls `config_save()` to persist to NVS.
 - `defaults` calls `config_defaults()` to reset the in-memory draft to factory values without touching NVS. Requires explicit `config save` to persist.
 

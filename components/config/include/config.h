@@ -53,9 +53,21 @@ typedef struct {
     /* PA relay — used by emergency_shutdown() to immediately de-energise the PA */
     uint8_t pa_relay_id;             /* default: 2 (relay IDs are 1-6) */
 
-    /* Power meter calibration — P = cal_factor × V² */
-    float fwd_power_cal_factor;      /* default: 1.0  */
-    float ref_power_cal_factor;      /* default: 1.0  */
+    /* Power meter calibration — log-linear detector model
+     * dBm = (V_det_mV / slope) + intercept + atten + abs(coupling) */
+    float fwd_slope_mv_per_db;       /* default: -25.0 */
+    float fwd_intercept_dbm;         /* default: 0.0   */
+    float fwd_coupling_db;           /* default: 0.0   */
+    float fwd_attenuator_db;         /* default: 0.0   */
+
+    float ref_slope_mv_per_db;       /* default: -25.0 */
+    float ref_intercept_dbm;         /* default: 0.0   */
+    float ref_coupling_db;           /* default: 0.0   */
+    float ref_attenuator_db;         /* default: 0.0   */
+
+    /* ADC input resistor divider — ratio = R_bottom / (R_top + R_bottom) */
+    float adc_r_top_ohms;            /* default: 10000  */
+    float adc_r_bottom_ohms;         /* default: 15000  */
 
     /* Thermistor (Steinhart-Hart beta model) */
     float thermistor_beta;           /* default: 3950   */

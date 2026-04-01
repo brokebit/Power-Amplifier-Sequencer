@@ -23,6 +23,8 @@ typedef struct {
     /* Sensor readings */
     float fwd_power_w;
     float ref_power_w;
+    float fwd_power_dbm;
+    float ref_power_dbm;
     float swr;
     float temp1_c;
     float temp2_c;
@@ -40,8 +42,9 @@ void system_state_set_relay(uint8_t relay_id, bool on);
 void system_state_set_relays_all_off(void);
 void system_state_set_ptt(bool active);
 void system_state_set_sequencer(uint8_t state, uint8_t fault);
-void system_state_set_sensors(float fwd_w, float ref_w, float swr,
-                              float temp1_c, float temp2_c);
+void system_state_set_sensors(float fwd_w, float ref_w,
+                              float fwd_dbm, float ref_dbm,
+                              float swr, float temp1_c, float temp2_c);
 void system_state_set_wifi(bool connected, uint32_t ip_addr, int8_t rssi);
 
 /* ---------------------------------------------------------

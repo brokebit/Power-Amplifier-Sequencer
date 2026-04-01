@@ -24,10 +24,12 @@ class TestGetConfig:
         assert isinstance(data["pa_relay"], int)
         assert 1 <= data["pa_relay"] <= RELAY_COUNT
 
-    def test_has_calibration_factors(self, api):
+    def test_has_power_calibration(self, api):
         data = api.get_ok("/api/config")
-        assert isinstance(data["fwd_cal"], (int, float))
-        assert isinstance(data["ref_cal"], (int, float))
+        for key in ("fwd_slope", "fwd_intercept", "fwd_coupling", "fwd_atten",
+                     "ref_slope", "ref_intercept", "ref_coupling", "ref_atten",
+                     "adc_r_top", "adc_r_bottom"):
+            assert isinstance(data[key], (int, float)), f"{key} missing or wrong type"
 
     def test_has_thermistor_params(self, api):
         data = api.get_ok("/api/config")
@@ -107,21 +109,45 @@ class TestPostConfig:
         assert updated == new_val
         api.post_ok("/api/config", json={"key": "pa_relay", "value": str(original)})
 
-    def test_set_fwd_cal(self, api):
-        original = api.get_ok("/api/config")["fwd_cal"]
-        new_val = 2.0 if original != 2.0 else 1.0
-        api.post_ok("/api/config", json={"key": "fwd_cal", "value": str(new_val)})
-        updated = api.get_ok("/api/config")["fwd_cal"]
-        assert abs(updated - new_val) < 0.01
-        api.post_ok("/api/config", json={"key": "fwd_cal", "value": str(original)})
+    def test_set_fwd_slope(self, api):
+        original = api.get_ok("/api/config")["fwd_slope"]
+        new_val = -54.2 if original != -54.2 else -25.0
+        api.post_ok("/api/config", json={"key": "fwd_slope", "value": str(new_val)})
+        updated = api.get_ok("/api/config")["fwd_slope"]
+        assert abs(updated - new_val) < 0.1
+        api.post_ok("/api/config", json={"key": "fwd_slope", "value": str(original)})
 
-    def test_set_ref_cal(self, api):
-        original = api.get_ok("/api/config")["ref_cal"]
-        new_val = 2.0 if original != 2.0 else 1.0
-        api.post_ok("/api/config", json={"key": "ref_cal", "value": str(new_val)})
-        updated = api.get_ok("/api/config")["ref_cal"]
-        assert abs(updated - new_val) < 0.01
-        api.post_ok("/api/config", json={"key": "ref_cal", "value": str(original)})
+    def test_set_fwd_intercept(self, api):
+        original = api.get_ok("/api/config")["fwd_intercept"]
+        new_val = 30.1 if original != 30.1 else 0.0
+        api.post_ok("/api/config", json={"key": "fwd_intercept", "value": str(new_val)})
+        updated = api.get_ok("/api/config")["fwd_intercept"]
+        assert abs(updated - new_val) < 0.1
+        api.post_ok("/api/config", json={"key": "fwd_intercept", "value": str(original)})
+
+    def test_set_fwd_coupling(self, api):
+        original = api.get_ok("/api/config")["fwd_coupling"]
+        new_val = -42.3 if original != -42.3 else 0.0
+        api.post_ok("/api/config", json={"key": "fwd_coupling", "value": str(new_val)})
+        updated = api.get_ok("/api/config")["fwd_coupling"]
+        assert abs(updated - new_val) < 0.1
+        api.post_ok("/api/config", json={"key": "fwd_coupling", "value": str(original)})
+
+    def test_set_fwd_atten(self, api):
+        original = api.get_ok("/api/config")["fwd_atten"]
+        new_val = 10.0 if original != 10.0 else 0.0
+        api.post_ok("/api/config", json={"key": "fwd_atten", "value": str(new_val)})
+        updated = api.get_ok("/api/config")["fwd_atten"]
+        assert abs(updated - new_val) < 0.1
+        api.post_ok("/api/config", json={"key": "fwd_atten", "value": str(original)})
+
+    def test_set_ref_slope(self, api):
+        original = api.get_ok("/api/config")["ref_slope"]
+        new_val = -54.8 if original != -54.8 else -25.0
+        api.post_ok("/api/config", json={"key": "ref_slope", "value": str(new_val)})
+        updated = api.get_ok("/api/config")["ref_slope"]
+        assert abs(updated - new_val) < 0.1
+        api.post_ok("/api/config", json={"key": "ref_slope", "value": str(original)})
 
     def test_set_therm_beta(self, api):
         original = api.get_ok("/api/config")["therm_beta"]
@@ -201,8 +227,10 @@ class TestConfigDefaults:
         assert abs(data["temp1_threshold"] - 65.0) < 0.01
         assert abs(data["temp2_threshold"] - 65.0) < 0.01
         assert data["pa_relay"] == 2
-        assert abs(data["fwd_cal"] - 1.0) < 0.01
-        assert abs(data["ref_cal"] - 1.0) < 0.01
+        assert abs(data["fwd_slope"] - (-25.0)) < 0.1
+        assert abs(data["fwd_intercept"] - 0.0) < 0.1
+        assert abs(data["ref_slope"] - (-25.0)) < 0.1
+        assert abs(data["ref_intercept"] - 0.0) < 0.1
 
 
 @pytest.mark.write

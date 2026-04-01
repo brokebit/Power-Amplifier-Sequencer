@@ -43,6 +43,8 @@ class TestWebSocket:
             assert "relays" in data
             assert "fwd_w" in data
             assert "ref_w" in data
+            assert "fwd_dbm" in data
+            assert "ref_dbm" in data
             assert "swr" in data
             assert "temp1_c" in data
             assert "temp2_c" in data
@@ -69,9 +71,10 @@ class TestWebSocket:
 
             assert len(frames) == 3
 
-            # Total time for 3 frames should be roughly 1-4 seconds
+            # Total time for 3 frames should be roughly 0.3-4 seconds
+            # Push interval is 250ms, so 2 gaps between 3 frames ≈ 500ms
             total_time = timestamps[-1] - timestamps[0]
-            assert 0.5 < total_time < 5.0, f"Total time for 3 frames: {total_time:.2f}s"
+            assert 0.3 < total_time < 5.0, f"Total time for 3 frames: {total_time:.2f}s"
         finally:
             ws.close()
 
@@ -114,8 +117,9 @@ class TestWebSocket:
 
     def test_multiple_clients(self, device_ip):
         """Verify two simultaneous WebSocket clients both receive frames."""
+        time.sleep(1)  # Let server finish closing sockets from previous tests
         ws1 = websocket.create_connection(f"ws://{device_ip}/ws", timeout=10)
-        time.sleep(0.1)  # Let server process first connection
+        time.sleep(0.5)  # Let server process first connection
         ws2 = websocket.create_connection(f"ws://{device_ip}/ws", timeout=10)
         try:
             frame1 = ws1.recv()

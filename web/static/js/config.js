@@ -11,8 +11,16 @@
     { section: 'fault',  key: 'temp1_threshold',  i18n: 'config.temp1_threshold', step: 1,   min: 1,   suffix: '\u00b0C' },
     { section: 'fault',  key: 'temp2_threshold',  i18n: 'config.temp2_threshold', step: 1,   min: 1,   suffix: '\u00b0C' },
     { section: 'pa',     key: 'pa_relay',         i18n: 'config.pa_relay',        step: 1,   min: 1,   max: 6, suffix: '' },
-    { section: 'power',  key: 'fwd_cal',          i18n: 'config.fwd_cal',         step: 0.01, min: 0.01, suffix: '' },
-    { section: 'power',  key: 'ref_cal',          i18n: 'config.ref_cal',         step: 0.01, min: 0.01, suffix: '' },
+    { section: 'power',  key: 'fwd_slope',        i18n: 'config.fwd_slope',       step: 0.1, suffix: 'mV/dB' },
+    { section: 'power',  key: 'fwd_intercept',   i18n: 'config.fwd_intercept',   step: 0.1, suffix: 'dBm' },
+    { section: 'power',  key: 'fwd_coupling',    i18n: 'config.fwd_coupling',    step: 0.1, max: 0, suffix: 'dB' },
+    { section: 'power',  key: 'fwd_atten',       i18n: 'config.fwd_atten',       step: 0.1, min: 0, suffix: 'dB' },
+    { section: 'power',  key: 'ref_slope',        i18n: 'config.ref_slope',       step: 0.1, suffix: 'mV/dB' },
+    { section: 'power',  key: 'ref_intercept',   i18n: 'config.ref_intercept',   step: 0.1, suffix: 'dBm' },
+    { section: 'power',  key: 'ref_coupling',    i18n: 'config.ref_coupling',    step: 0.1, max: 0, suffix: 'dB' },
+    { section: 'power',  key: 'ref_atten',       i18n: 'config.ref_atten',       step: 0.1, min: 0, suffix: 'dB' },
+    { section: 'divider', key: 'adc_r_top',       i18n: 'config.adc_r_top',       step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_r_bottom',    i18n: 'config.adc_r_bottom',    step: 1, min: 0, suffix: '\u03a9' },
     { section: 'therm',  key: 'therm_beta',       i18n: 'config.therm_beta',      step: 1,   min: 1,   suffix: '' },
     { section: 'therm',  key: 'therm_r0',         i18n: 'config.therm_r0',        step: 1,   min: 1,   suffix: '\u03a9' },
     { section: 'therm',  key: 'therm_rseries',    i18n: 'config.therm_rseries',   step: 1,   min: 1,   suffix: '\u03a9' }
@@ -22,6 +30,7 @@
     { id: 'fault',  i18n: 'config.section_fault' },
     { id: 'pa',     i18n: 'config.section_pa' },
     { id: 'power',  i18n: 'config.section_power' },
+    { id: 'divider', i18n: 'config.section_divider' },
     { id: 'therm',  i18n: 'config.section_therm' }
   ];
 

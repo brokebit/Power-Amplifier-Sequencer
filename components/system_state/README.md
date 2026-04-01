@@ -18,6 +18,8 @@ The snapshot struct that consumers receive. Every field is plain-old-data so the
 | `seq_fault` | `uint8_t` | Active fault code. Cast to `seq_fault_t` (`SEQ_FAULT_NONE`, `SEQ_FAULT_HIGH_SWR`, `SEQ_FAULT_OVER_TEMP1`, `SEQ_FAULT_OVER_TEMP2`, `SEQ_FAULT_EMERGENCY`). |
 | `fwd_power_w` | `float` | Forward RF power in watts. |
 | `ref_power_w` | `float` | Reflected RF power in watts. |
+| `fwd_power_dbm` | `float` | Forward RF power in dBm. -999.0 when no signal. |
+| `ref_power_dbm` | `float` | Reflected RF power in dBm. -999.0 when no signal. |
 | `swr` | `float` | Standing wave ratio. Initialised to `1.0` (perfect match). |
 | `temp1_c` | `float` | Temperature sensor 1 reading in degrees Celsius. |
 | `temp2_c` | `float` | Temperature sensor 2 reading in degrees Celsius. |
@@ -41,7 +43,7 @@ Each setter enters a critical section, mutates only the fields it owns, and exit
 | `system_state_set_relays_all_off()` | `relays` | `relay_states` (zeroed) |
 | `system_state_set_ptt(active)` | `ptt` (ISR context) | `ptt_active` |
 | `system_state_set_sequencer(state, fault)` | `sequencer` | `seq_state`, `seq_fault` |
-| `system_state_set_sensors(fwd_w, ref_w, swr, temp1_c, temp2_c)` | `monitor` | `fwd_power_w`, `ref_power_w`, `swr`, `temp1_c`, `temp2_c` |
+| `system_state_set_sensors(fwd_w, ref_w, fwd_dbm, ref_dbm, swr, temp1_c, temp2_c)` | `monitor` | `fwd_power_w`, `ref_power_w`, `fwd_power_dbm`, `ref_power_dbm`, `swr`, `temp1_c`, `temp2_c` |
 | `system_state_set_wifi(connected, ip_addr, rssi)` | `wifi_sta` | `wifi_connected`, `wifi_ip_addr`, `wifi_rssi` |
 
 `relay_id` is validated (must be 1..`HW_RELAY_COUNT`); out-of-range calls are silently dropped.

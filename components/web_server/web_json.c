@@ -33,6 +33,7 @@ esp_err_t web_json_ok(httpd_req_t *req, cJSON *data)
     }
 
     httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Connection", "close");
     esp_err_t err = httpd_resp_sendstr(req, json_str);
     free(json_str);
     return err;
@@ -61,6 +62,7 @@ esp_err_t web_json_error(httpd_req_t *req, int http_status, const char *msg)
     snprintf(status_str, sizeof(status_str), "%d", http_status);
     httpd_resp_set_status(req, status_str);
     httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Connection", "close");
     esp_err_t err = httpd_resp_sendstr(req, json_str);
     free(json_str);
     return err;

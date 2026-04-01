@@ -47,12 +47,15 @@ void system_state_set_sequencer(uint8_t state, uint8_t fault)
     portEXIT_CRITICAL(&s_mux);
 }
 
-void system_state_set_sensors(float fwd_w, float ref_w, float swr,
-                              float temp1_c, float temp2_c)
+void system_state_set_sensors(float fwd_w, float ref_w,
+                              float fwd_dbm, float ref_dbm,
+                              float swr, float temp1_c, float temp2_c)
 {
     portENTER_CRITICAL(&s_mux);
     s_state.fwd_power_w = fwd_w;
     s_state.ref_power_w = ref_w;
+    s_state.fwd_power_dbm = fwd_dbm;
+    s_state.ref_power_dbm = ref_dbm;
     s_state.swr = swr;
     s_state.temp1_c = temp1_c;
     s_state.temp2_c = temp2_c;

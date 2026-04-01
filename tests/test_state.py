@@ -44,6 +44,8 @@ class TestGetState:
         data = api.get_ok("/api/state")
         assert isinstance(data["fwd_w"], (int, float))
         assert isinstance(data["ref_w"], (int, float))
+        assert isinstance(data["fwd_dbm"], (int, float))
+        assert isinstance(data["ref_dbm"], (int, float))
         assert isinstance(data["swr"], (int, float))
 
     def test_has_temperature_readings(self, api):

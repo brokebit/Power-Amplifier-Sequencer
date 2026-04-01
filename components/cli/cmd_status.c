@@ -30,8 +30,9 @@ static int cmd_status_handler(int argc, char **argv)
     }
     printf("\n");
 
-    printf("Fwd: %.1fW  Ref: %.1fW  SWR: %.1f\n",
-           ss.fwd_power_w, ss.ref_power_w, ss.swr);
+    printf("Fwd: %.1fdBm %.1fW  Ref: %.1fdBm %.1fW  SWR: %.1f\n",
+           ss.fwd_power_dbm, ss.fwd_power_w,
+           ss.ref_power_dbm, ss.ref_power_w, ss.swr);
 
     printf("Temp1: %.1fC  Temp2: %.1fC\n",
            ss.temp1_c, ss.temp2_c);

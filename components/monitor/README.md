@@ -25,8 +25,16 @@ At init, the monitor snapshots the full `app_config_t` via `config_snapshot()`. 
 
 | Field                       | Purpose                                          | Default  |
 |-----------------------------|--------------------------------------------------|----------|
-| `fwd_power_cal_factor`      | Calibration: `P_fwd = factor * V^2`              | 1.0      |
-| `ref_power_cal_factor`      | Calibration: `P_ref = factor * V^2`              | 1.0      |
+| `fwd_slope_mv_per_db`       | Log-linear detector slope for forward channel     | -25.0    |
+| `fwd_intercept_dbm`         | Log-linear detector intercept for forward channel | 0.0      |
+| `fwd_coupling_db`           | Directional coupler coupling factor (forward)     | 0.0      |
+| `fwd_attenuator_db`         | Attenuator between coupler and detector (forward) | 0.0      |
+| `ref_slope_mv_per_db`       | Log-linear detector slope for reflected channel   | -25.0    |
+| `ref_intercept_dbm`         | Log-linear detector intercept for reflected channel | 0.0    |
+| `ref_coupling_db`           | Directional coupler coupling factor (reflected)   | 0.0      |
+| `ref_attenuator_db`         | Attenuator between coupler and detector (reflected) | 0.0    |
+| `adc_r_top_ohms`            | ADC input divider top resistor                    | 10000    |
+| `adc_r_bottom_ohms`         | ADC input divider bottom resistor                 | 15000    |
 | `swr_fault_threshold`       | SWR above this triggers `SEQ_FAULT_HIGH_SWR`     | 3.0      |
 | `temp1_fault_threshold_c`   | Temp1 above this triggers `SEQ_FAULT_OVER_TEMP1` | 65.0 C   |
 | `temp2_fault_threshold_c`   | Temp2 above this triggers `SEQ_FAULT_OVER_TEMP2` | 65.0 C   |
@@ -48,20 +56,23 @@ At init, the monitor snapshots the full `app_config_t` via `config_snapshot()`. 
 Each cycle, the monitor calls `system_state_set_sensors()` to publish:
 
 ```c
-system_state_set_sensors(fwd_power_w, ref_power_w, swr, temp1_c, temp2_c);
+system_state_set_sensors(fwd_power_w, ref_power_w, fwd_power_dbm, ref_power_dbm, swr, temp1_c, temp2_c);
 ```
 
 These values are immediately available to any consumer calling `system_state_get()` (display, CLI, web server).
 
 ## Conversion Mathematics
 
-### Power
+### Power (Log-Linear Detector)
 
 ```
-P = cal_factor * V_adc^2
+V_det_mV   = (V_adc / divider_ratio) * 1000
+dBm_det    = (V_det_mV / slope) + intercept
+dBm_actual = dBm_det + attenuator_dB + abs(coupling_dB)
+P_watts    = 10^((dBm_actual - 30) / 10)
 ```
 
-Squared-voltage relationship assumes a power detector whose output voltage is proportional to the square root of RF power. The cal_factor absorbs coupler loss, detector sensitivity, and unit scaling.
+Where `divider_ratio = R_bottom / (R_top + R_bottom)`. The detector slope and intercept characterise the log-linear relationship between detector output voltage and RF power in dBm (typical of AD8307, AD8318, and similar log detector ICs). The coupler coupling factor and optional attenuator are dB offsets that convert from the detector's measured power back to actual RF power on the main feedline. Each channel (FWD, REF) has its own slope, intercept, coupling, and attenuator values.
 
 ### SWR
 

@@ -225,6 +225,16 @@
     if (el) el.textContent = value.toFixed(1) + ' W';
   }
 
+  function updateDbmReadout(id, dbm) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (dbm == null || dbm <= -999) {
+      el.textContent = '';
+    } else {
+      el.textContent = dbm.toFixed(1) + ' dBm';
+    }
+  }
+
   /* ---- SWR Bar Meter --------------------------------------------------- */
 
   var swrChart = null;
@@ -418,6 +428,8 @@
 
     if (fwdChart) updatePowerMeter(fwdChart, 'fwd-readout', state.fwd_w, fwdPeakRef);
     if (refChart) updatePowerMeter(refChart, 'ref-readout', state.ref_w, refPeakRef);
+    updateDbmReadout('fwd-dbm-readout', state.fwd_dbm);
+    updateDbmReadout('ref-dbm-readout', state.ref_dbm);
     updateSwr(state.swr);
     appendTemp(state);
 

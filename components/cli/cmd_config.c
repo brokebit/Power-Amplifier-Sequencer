@@ -22,9 +22,19 @@ static void print_config(const app_config_t *cfg)
     config_relay_label(cfg, cfg->pa_relay_id, label, sizeof(label));
     printf("  pa_relay        = %s\n", label);
 
-    printf("Power calibration:\n");
-    printf("  fwd_cal         = %.4f\n", cfg->fwd_power_cal_factor);
-    printf("  ref_cal         = %.4f\n", cfg->ref_power_cal_factor);
+    printf("Power calibration (FWD):\n");
+    printf("  fwd_slope       = %.1f mV/dB\n", cfg->fwd_slope_mv_per_db);
+    printf("  fwd_intercept   = %.1f dBm\n", cfg->fwd_intercept_dbm);
+    printf("  fwd_coupling    = %.1f dB\n", cfg->fwd_coupling_db);
+    printf("  fwd_atten       = %.1f dB\n", cfg->fwd_attenuator_db);
+    printf("Power calibration (REF):\n");
+    printf("  ref_slope       = %.1f mV/dB\n", cfg->ref_slope_mv_per_db);
+    printf("  ref_intercept   = %.1f dBm\n", cfg->ref_intercept_dbm);
+    printf("  ref_coupling    = %.1f dB\n", cfg->ref_coupling_db);
+    printf("  ref_atten       = %.1f dB\n", cfg->ref_attenuator_db);
+    printf("ADC divider:\n");
+    printf("  adc_r_top       = %.0f ohms\n", cfg->adc_r_top_ohms);
+    printf("  adc_r_bottom    = %.0f ohms\n", cfg->adc_r_bottom_ohms);
 
     printf("Thermistor:\n");
     printf("  therm_beta      = %.0f\n", cfg->thermistor_beta);
@@ -90,8 +100,11 @@ static int cmd_config_handler(int argc, char **argv)
     if (strcmp(argv[1], "set") == 0) {
         if (argc < 4) {
             printf("Usage: config set <key> <value>\n");
-            printf("Keys: swr_threshold temp1_threshold temp2_threshold "
-                   "fwd_cal ref_cal therm_beta therm_r0 therm_rseries pa_relay\n");
+            printf("Keys: swr_threshold temp1_threshold temp2_threshold\n"
+                   "      fwd_slope fwd_intercept fwd_coupling fwd_atten\n"
+                   "      ref_slope ref_intercept ref_coupling ref_atten\n"
+                   "      adc_r_top adc_r_bottom\n"
+                   "      therm_beta therm_r0 therm_rseries pa_relay\n");
             return 1;
         }
         return set_config_value(argv[2], argv[3]);

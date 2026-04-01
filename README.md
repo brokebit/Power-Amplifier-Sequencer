@@ -50,10 +50,10 @@ The system is organized as ESP-IDF components under `components/`. Two FreeRTOS 
 | Component | Purpose |
 |---|---|
 | [sequencer](components/sequencer/README.md) | Central state machine (RX, SEQUENCING_TX, TX, SEQUENCING_RX, FAULT). Sole consumer of the event queue. Orchestrates relay switching in timed sequences. Latching fault mode requires explicit clearance. |
-| [monitor](components/monitor/README.md) | Periodic ADC sensing task. Reads 4 channels via single-shot conversions (~500 ms cycle at 8 SPS). Computes power (W), SWR, and temperatures (C). Injects fault events on threshold breach. |
+| [monitor](components/monitor/README.md) | Periodic ADC sensing task. Reads 4 channels via single-shot conversions (~500 ms cycle at 8 SPS). Computes power (dBm/W) via log-linear detector model, SWR, and temperatures (C). Injects fault events on threshold breach. |
 | [ads1115](components/ads1115/README.md) | Low-level I2C driver for ADS1115. Single-shot trigger/wait/read pattern. Caller owns synchronisation. |
 | [system_state](components/system_state/README.md) | Shared blackboard (spinlock-protected struct). All subsystems publish here; consumers read atomic snapshots. |
-| [config](components/config/) | NVS-backed runtime configuration. Relay sequences, fault thresholds, calibration factors, thermistor parameters. Writes defaults on first boot. |
+| [config](components/config/) | NVS-backed runtime configuration. Relay sequences, fault thresholds, power calibration (log-linear detector slope/intercept, coupler, attenuator, ADC divider), thermistor parameters. Writes defaults on first boot. |
 | [relays](components/relays/) | GPIO driver for 6 relays. 1-indexed IDs matching schematic labels. |
 | [ptt](components/ptt/) | PTT GPIO interrupt driver. Both-edge ISR posts assert/release events to sequencer queue. |
 | [buttons](components/buttons/) | Debounced button driver (50 ms timer). BTN1 wired to emergency PA off event. BTN2-6 support optional callbacks. |
@@ -231,13 +231,11 @@ Sequencer/
 Each component under `components/` has its own `CMakeLists.txt`, `include/` directory with public headers, and a `README.md` with detailed documentation of its data structures, event flow, and architecture decisions.
 
 ### TODO
-- Implement SPIFFS updates via OTA mechanism for static web assets
-- Figure out the RF Head voltage to db math and proper calibration
 - Implement the Nextion display driver and UI
 - Implement a reset button to recover from EMERGENCY fault state without needing to power cycle
-- Build out the web dashboard UI (the current index.html is a minimal placeholder)
 - Add authentication to the REST API write endpoints
 
 ### BUGS
 - Thuroughly test wifi. Seems like I've noticed the device forgetting creds
 - If PTT changes to quickly, especially if less than the delay time on a seq, state can get confused
+- Test for multiple websocket connections fails

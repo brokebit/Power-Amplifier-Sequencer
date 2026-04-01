@@ -1,5 +1,120 @@
 # Release Notes
 
+## v1.2.1
+
+### Power Calibration Refactor: Log-Linear Detector Support
+
+Replaced the square-law power calibration model (`P = cal_factor x V^2`) with a log-linear detector model supporting slope, intercept, coupler coupling factor, and attenuator offset per channel. This supports AD8307, AD8318, K9KJ dual RF head, and similar log-linear power detectors used in amateur radio.
+
+**New config parameters** (per channel, FWD and REF independently):
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `fwd_slope` / `ref_slope` | Detector slope (mV/dB) | -25.0 |
+| `fwd_intercept` / `ref_intercept` | Detector intercept (dBm at 0V) | 0.0 |
+| `fwd_coupling` / `ref_coupling` | Directional coupler factor (dB, negative) | 0.0 |
+| `fwd_atten` / `ref_atten` | Inline attenuator (dB) | 0.0 |
+| `adc_r_top` | ADC input divider top resistor (ohms) | 10000 |
+| `adc_r_bottom` | ADC input divider bottom resistor (ohms) | 15000 |
+
+**Removed config parameters:** `fwd_cal`, `ref_cal` (the old square-law calibration factors).
+
+**dBm support:** Power readings are now computed in dBm first, then converted to watts. Both units are exposed in the REST API (`fwd_dbm`, `ref_dbm`), CLI status/monitor output, and the web dashboard.
+
+**Conversion formula:**
+
+```
+V_det_mV   = (V_adc / divider_ratio) * 1000
+dBm_det    = (V_det_mV / slope) + intercept
+dBm_actual = dBm_det + attenuator + abs(coupling)
+P_watts    = 10^((dBm_actual - 30) / 10)
+```
+
+**NVS config reset:** The `app_config_t` struct layout has changed. On first boot after upgrading, the firmware detects the size mismatch and resets all configuration to factory defaults. Users must re-enter their settings (sequences, thresholds, relay names, and the new power calibration values).
+
+### Bug Fixes
+
+**HTTP: API responses hold sockets open, exhausting pool under sustained requests**
+
+API endpoints (`/api/state`, `/api/config`, etc.) returned responses without a `Connection: close` header, defaulting to HTTP/1.1 keep-alive. Under sustained API traffic (e.g., automated test suites), idle keep-alive sockets accumulated and consumed the `max_open_sockets=7` budget, preventing new connections including WebSocket upgrades.
+
+Fixed by adding `Connection: close` to both `web_json_ok()` and `web_json_error()` in `web_json.c`. Since all API handlers funnel through these two functions, every API response now releases its socket immediately — matching the existing fix for static files in v1.2.0.
+
+**WebSocket: stale sockets not reclaimed promptly on client disconnect**
+
+When a WebSocket client sent a CLOSE frame, `ws_handler` removed the client from the push list but did not tell httpd to release the underlying socket. The socket lingered until httpd independently detected the TCP FIN in a later `select()` cycle. With `lru_purge_enable=false`, this delayed reclamation could leave sockets occupied well after the client disconnected.
+
+Fixed by calling `httpd_sess_trigger_close()` after `ws_remove_client()` in the CLOSE frame handler, which queues an immediate session teardown on the httpd task.
+
+### Documentation
+
+- Corrected WebSocket broadcast interval from "500 ms" to "250 ms" in `components/web_server/README.md` to match actual code (`pdMS_TO_TICKS(250)`).
+
+### Tests
+
+- `test_receives_multiple_frames`: Relaxed timing lower bound from 0.5s to 0.3s. With a 250ms push interval, 3 frames span ~500ms and jitter could land just under 0.5.
+- `test_multiple_clients`: Added delays for server socket cleanup between connections.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `components/web_server/web_json.c` | Added `Connection: close` header to `web_json_ok()` and `web_json_error()` |
+| `components/web_server/web_ws.c` | Added `httpd_sess_trigger_close()` on WebSocket CLOSE frame |
+| `components/web_server/README.md` | Corrected broadcast interval to 250 ms |
+| `tests/test_websocket.py` | Relaxed timing assertion; added inter-test cleanup delays |
+
+### Power Calibration Refactor: Log-Linear Detector Support
+
+Replaced the square-law power calibration model (`P = cal_factor x V^2`) with a log-linear detector model supporting slope, intercept, coupler coupling factor, and attenuator offset per channel. This supports AD8307, AD8318, K9KJ dual RF head, and similar log-linear power detectors used in amateur radio.
+
+**New config parameters** (per channel, FWD and REF independently):
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `fwd_slope` / `ref_slope` | Detector slope (mV/dB) | -25.0 |
+| `fwd_intercept` / `ref_intercept` | Detector intercept (dBm at 0V) | 0.0 |
+| `fwd_coupling` / `ref_coupling` | Directional coupler factor (dB, negative) | 0.0 |
+| `fwd_atten` / `ref_atten` | Inline attenuator (dB) | 0.0 |
+| `adc_r_top` | ADC input divider top resistor (ohms) | 10000 |
+| `adc_r_bottom` | ADC input divider bottom resistor (ohms) | 15000 |
+
+**Removed config parameters:** `fwd_cal`, `ref_cal` (the old square-law calibration factors).
+
+**dBm support:** Power readings are now computed in dBm first, then converted to watts. Both units are exposed in the REST API (`fwd_dbm`, `ref_dbm`), CLI status/monitor output, and the web dashboard.
+
+**Conversion formula:**
+
+```
+V_det_mV   = (V_adc / divider_ratio) * 1000
+dBm_det    = (V_det_mV / slope) + intercept
+dBm_actual = dBm_det + attenuator + abs(coupling)
+P_watts    = 10^((dBm_actual - 30) / 10)
+```
+
+**NVS config reset:** The `app_config_t` struct layout has changed. On first boot after upgrading, the firmware detects the size mismatch and resets all configuration to factory defaults. Users must re-enter their settings (sequences, thresholds, relay names, and the new power calibration values).
+
+### Files Changed (Power Calibration)
+
+| File | Change |
+|------|--------|
+| `components/config/include/config.h` | Replaced `fwd_power_cal_factor`/`ref_power_cal_factor` with 10 new power cal fields |
+| `components/config/config.c` | New defaults, 10 new config key entries replacing old 2 |
+| `components/monitor/monitor.c` | Log-linear conversion replacing square-law; `adc_voltage_to_dbm()` and `dbm_to_watts()` helpers |
+| `components/system_state/include/system_state.h` | Added `fwd_power_dbm`, `ref_power_dbm` fields |
+| `components/system_state/system_state.c` | Updated `system_state_set_sensors()` to accept dBm values |
+| `components/web_server/api_state.c` | Added `fwd_dbm`, `ref_dbm` to state JSON |
+| `components/web_server/api_config.c` | 10 new config keys in GET/POST replacing old 2 |
+| `components/cli/cmd_config.c` | Updated `config show` and `config set` for new power cal fields |
+| `components/cli/cmd_status.c` | Power line shows dBm alongside watts |
+| `components/cli/cmd_monitor.c` | dBm columns in human-readable and CSV output |
+| `web/static/index.html` | dBm readout elements next to power meters |
+| `web/static/js/dashboard.js` | dBm display logic |
+| `web/static/js/config.js` | New power cal field definitions, ADC Divider section |
+| `web/static/lang/en.json` | i18n keys for new fields |
+| `web/static/lang/ru.json` | Russian translations |
+| `web/static/lang/pl.json` | Polish translations |
+
 ## v1.2.0
 
 ### New Feature: Web Interface

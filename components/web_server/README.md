@@ -70,6 +70,8 @@ The `web_build_state_json()` function (in `api_state.c`) takes an atomic snapsho
   "relay_names": ["", "PA", "", "", "", ""],
   "fwd_w": 0.0,
   "ref_w": 0.0,
+  "fwd_dbm": -999.0,
+  "ref_dbm": -999.0,
   "swr": 1.0,
   "temp1_c": 25.3,
   "temp2_c": 24.8,
@@ -91,7 +93,7 @@ The `web_build_state_json()` function (in `api_state.c`) takes an atomic snapsho
 | Method | URI | Body | Description |
 |---|---|---|---|
 | GET | `/api/config` | -- | Full configuration dump via `config_snapshot()` (thresholds, calibration, thermistor params, sequences, relay names, `pending_apply` flag) |
-| POST | `/api/config` | `{"key":"swr_threshold","value":3.0}` | Set a single config key via `config_set_by_key()`. Valid keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `pa_relay`, `fwd_cal`, `ref_cal`, `therm_beta`, `therm_r0`, `therm_rseries` |
+| POST | `/api/config` | `{"key":"swr_threshold","value":3.0}` | Set a single config key via `config_set_by_key()`. Valid keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `pa_relay`, `fwd_slope`, `fwd_intercept`, `fwd_coupling`, `fwd_atten`, `ref_slope`, `ref_intercept`, `ref_coupling`, `ref_atten`, `adc_r_top`, `adc_r_bottom`, `therm_beta`, `therm_r0`, `therm_rseries` |
 | POST | `/api/config/save` | -- | Persist draft config to NVS via `config_save()` |
 | POST | `/api/config/defaults` | -- | Reset draft config to factory defaults via `config_defaults()` (does not save) |
 
@@ -163,7 +165,7 @@ The `web_build_state_json()` function (in `api_state.c`) takes an atomic snapsho
 
 **URI:** `ws://<device-ip>/ws`
 
-A dedicated FreeRTOS task (`ws_push`) broadcasts the same JSON payload as `GET /api/state` to all connected WebSocket clients every 500 ms. The connection is server-push only; incoming frames from clients are read and discarded.
+A dedicated FreeRTOS task (`ws_push`) broadcasts the same JSON payload as `GET /api/state` to all connected WebSocket clients every 250 ms. The connection is server-push only; incoming frames from clients are read and discarded.
 
 Key implementation details:
 

@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "esp_log.h"
@@ -66,6 +67,27 @@ static float voltage_to_temp_c(float v_adc, const app_config_t *cfg)
     float t_kelvin = 1.0f / (1.0f / 298.15f +
                              logf(r_ntc / cfg->thermistor_r0_ohms) / cfg->thermistor_beta);
     return t_kelvin - 273.15f;
+}
+
+/* Convert ADC voltage to dBm via the log-linear detector model.
+ * Returns -999.0f (no-signal sentinel) when v_adc is negligible. */
+static float adc_voltage_to_dbm(float v_adc, float slope, float intercept,
+                                float coupling_db, float atten_db,
+                                float r_top, float r_bottom)
+{
+    if (v_adc < 0.001f) return -999.0f;
+
+    float divider_ratio = r_bottom / (r_top + r_bottom);
+    float v_det_mv = (v_adc / divider_ratio) * 1000.0f;
+    float dbm_det = (v_det_mv / slope) + intercept;
+    return dbm_det + atten_db + fabsf(coupling_db);
+}
+
+/* Convert dBm to watts. */
+static float dbm_to_watts(float dbm)
+{
+    if (dbm <= -999.0f) return 0.0f;
+    return powf(10.0f, (dbm - 30.0f) / 10.0f);
 }
 
 /* Calculate SWR from forward and reflected voltages. */
@@ -227,6 +249,7 @@ void monitor_task(void *arg)
      *   AIN2 = temp1 PA   AIN3 = temp2 PA
      */
     float last_fwd_w = 0.0f, last_ref_w = 0.0f, last_swr = 1.0f;
+    float last_fwd_dbm = -999.0f, last_ref_dbm = -999.0f;
     float last_temp1 = 0.0f, last_temp2 = 0.0f;
 
     for (;;) {
@@ -244,12 +267,21 @@ void monitor_task(void *arg)
         float ref_v = read_channel(ADS1115_CHANNEL_1);
 
         if (fwd_v >= 0.0f && ref_v >= 0.0f) {
-            last_fwd_w = cfg.fwd_power_cal_factor * fwd_v * fwd_v;
-            last_ref_w = cfg.ref_power_cal_factor * ref_v * ref_v;
+            last_fwd_dbm = adc_voltage_to_dbm(fwd_v,
+                cfg.fwd_slope_mv_per_db, cfg.fwd_intercept_dbm,
+                cfg.fwd_coupling_db, cfg.fwd_attenuator_db,
+                cfg.adc_r_top_ohms, cfg.adc_r_bottom_ohms);
+            last_ref_dbm = adc_voltage_to_dbm(ref_v,
+                cfg.ref_slope_mv_per_db, cfg.ref_intercept_dbm,
+                cfg.ref_coupling_db, cfg.ref_attenuator_db,
+                cfg.adc_r_top_ohms, cfg.adc_r_bottom_ohms);
+            last_fwd_w = dbm_to_watts(last_fwd_dbm);
+            last_ref_w = dbm_to_watts(last_ref_dbm);
             last_swr   = calc_swr(fwd_v, ref_v);
 
-            system_state_set_sensors(last_fwd_w, last_ref_w, last_swr,
-                                     last_temp1, last_temp2);
+            system_state_set_sensors(last_fwd_w, last_ref_w,
+                                     last_fwd_dbm, last_ref_dbm,
+                                     last_swr, last_temp1, last_temp2);
 
             if (last_fwd_w >= MIN_FWD_POWER_FOR_SWR_W && last_swr > cfg.swr_fault_threshold) {
                 ESP_LOGW(TAG, "high SWR %.1f (threshold %.1f)",
@@ -263,8 +295,9 @@ void monitor_task(void *arg)
         if (t1_v > 0.0f) {
             float temp_c = voltage_to_temp_c(t1_v, &cfg);
             last_temp1 = temp_c;
-            system_state_set_sensors(last_fwd_w, last_ref_w, last_swr,
-                                     last_temp1, last_temp2);
+            system_state_set_sensors(last_fwd_w, last_ref_w,
+                                     last_fwd_dbm, last_ref_dbm,
+                                     last_swr, last_temp1, last_temp2);
             if (!isnan(temp_c) && temp_c > cfg.temp1_fault_threshold_c) {
                 ESP_LOGW(TAG, "over-temp 1: %.1f°C (threshold %.1f)",
                          temp_c, cfg.temp1_fault_threshold_c);
@@ -277,8 +310,9 @@ void monitor_task(void *arg)
         if (t2_v > 0.0f) {
             float temp_c = voltage_to_temp_c(t2_v, &cfg);
             last_temp2 = temp_c;
-            system_state_set_sensors(last_fwd_w, last_ref_w, last_swr,
-                                     last_temp1, last_temp2);
+            system_state_set_sensors(last_fwd_w, last_ref_w,
+                                     last_fwd_dbm, last_ref_dbm,
+                                     last_swr, last_temp1, last_temp2);
             if (!isnan(temp_c) && temp_c > cfg.temp2_fault_threshold_c) {
                 ESP_LOGW(TAG, "over-temp 2: %.1f°C (threshold %.1f)",
                          temp_c, cfg.temp2_fault_threshold_c);

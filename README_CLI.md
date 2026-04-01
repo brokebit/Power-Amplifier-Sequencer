@@ -22,7 +22,7 @@ On boot, a `seq> ` prompt is available on UART0 (USB serial). ESP_LOG output is 
 | `config save` | Persist current config to NVS |
 | `config defaults` | Reset to factory defaults (in memory only) |
 
-Config keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `pa_relay`, `fwd_cal`, `ref_cal`, `therm_beta`, `therm_r0`, `therm_rseries`
+Config keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `pa_relay`, `fwd_slope`, `fwd_intercept`, `fwd_coupling`, `fwd_atten`, `ref_slope`, `ref_intercept`, `ref_coupling`, `ref_atten`, `adc_r_top`, `adc_r_bottom`, `therm_beta`, `therm_r0`, `therm_rseries`
 
 ## Sequence Editing
 

@@ -26,9 +26,19 @@ static esp_err_t api_config_get_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(data, "temp2_threshold", snap.temp2_fault_threshold_c);
     cJSON_AddNumberToObject(data, "pa_relay", snap.pa_relay_id);
 
-    /* Calibration */
-    cJSON_AddNumberToObject(data, "fwd_cal", snap.fwd_power_cal_factor);
-    cJSON_AddNumberToObject(data, "ref_cal", snap.ref_power_cal_factor);
+    /* Power meter calibration */
+    cJSON_AddNumberToObject(data, "fwd_slope", snap.fwd_slope_mv_per_db);
+    cJSON_AddNumberToObject(data, "fwd_intercept", snap.fwd_intercept_dbm);
+    cJSON_AddNumberToObject(data, "fwd_coupling", snap.fwd_coupling_db);
+    cJSON_AddNumberToObject(data, "fwd_atten", snap.fwd_attenuator_db);
+    cJSON_AddNumberToObject(data, "ref_slope", snap.ref_slope_mv_per_db);
+    cJSON_AddNumberToObject(data, "ref_intercept", snap.ref_intercept_dbm);
+    cJSON_AddNumberToObject(data, "ref_coupling", snap.ref_coupling_db);
+    cJSON_AddNumberToObject(data, "ref_atten", snap.ref_attenuator_db);
+
+    /* ADC divider */
+    cJSON_AddNumberToObject(data, "adc_r_top", snap.adc_r_top_ohms);
+    cJSON_AddNumberToObject(data, "adc_r_bottom", snap.adc_r_bottom_ohms);
 
     /* Thermistor */
     cJSON_AddNumberToObject(data, "therm_beta", snap.thermistor_beta);

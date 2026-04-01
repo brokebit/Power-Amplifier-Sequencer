@@ -73,9 +73,11 @@ esp_err_t ws_handler(httpd_req_t *req)
         ESP_LOGD(TAG, "WS recv error: %s", esp_err_to_name(err));
     }
 
-    /* Close frame handling */
+    /* Close frame — free WS slot and tell httpd to reclaim the socket */
     if (frame.type == HTTPD_WS_TYPE_CLOSE) {
-        ws_remove_client(httpd_req_to_sockfd(req));
+        int fd = httpd_req_to_sockfd(req);
+        ws_remove_client(fd);
+        httpd_sess_trigger_close(s_server, fd);
     }
 
     return ESP_OK;
