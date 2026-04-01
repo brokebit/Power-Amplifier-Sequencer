@@ -11,6 +11,8 @@
   "dashboard.fwd_power": "FWD Power",
   "dashboard.ref_power": "REF Power",
   "dashboard.swr": "SWR",
+  "dashboard.fwd_chart": "FWD Power History",
+  "dashboard.ref_chart": "REF Power History",
   "dashboard.temp_chart": "Temperature",
   "dashboard.temp_history": "History",
   "dashboard.temp_history.5m": "5 min",

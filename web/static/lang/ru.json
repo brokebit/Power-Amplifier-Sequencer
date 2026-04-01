@@ -11,6 +11,8 @@
   "dashboard.fwd_power": "\u041c\u043e\u0449\u043d\u043e\u0441\u0442\u044c FWD",
   "dashboard.ref_power": "\u041c\u043e\u0449\u043d\u043e\u0441\u0442\u044c REF",
   "dashboard.swr": "\u041a\u0421\u0412",
+  "dashboard.fwd_chart": "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u043c\u043e\u0449\u043d\u043e\u0441\u0442\u0438 FWD",
+  "dashboard.ref_chart": "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u043c\u043e\u0449\u043d\u043e\u0441\u0442\u0438 REF",
   "dashboard.temp_chart": "\u0422\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u0430",
   "dashboard.temp_history": "\u0418\u0441\u0442\u043e\u0440\u0438\u044f",
   "dashboard.temp_history.5m": "5 \u043c\u0438\u043d",

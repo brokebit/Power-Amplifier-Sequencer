@@ -286,6 +286,95 @@
     if (el) el.textContent = value.toFixed(1) + ':1';
   }
 
+  /* ---- Power Time-Series Charts ----------------------------------------- */
+
+  var fwdHistoryChart = null, refHistoryChart = null;
+  var fwdBuffer = { time: [], values: [] };
+  var refBuffer = { time: [], values: [] };
+  var fwdHistorySeconds = 900; /* default 15 min */
+  var refHistorySeconds = 900;
+
+  function createPowerHistoryChart(canvasId, label, color) {
+    var ctx = document.getElementById(canvasId);
+    if (!ctx) return null;
+
+    var style = getComputedStyle(document.documentElement);
+    var textCol = style.getPropertyValue('--color-text-secondary').trim() || '#a0a0a0';
+    var gridCol = textCol + '33';
+
+    return new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: label,
+          data: [],
+          borderColor: color,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: {
+          legend: {
+            labels: { color: textCol, boxWidth: 12, font: { size: 11 } }
+          },
+          tooltip: { enabled: false }
+        },
+        scales: {
+          x: {
+            ticks: { color: textCol, maxTicksLimit: 8, font: { size: 10 } },
+            grid: { color: gridCol }
+          },
+          y: {
+            ticks: { color: textCol, font: { size: 10 } },
+            grid: { color: gridCol },
+            title: { display: true, text: 'W', color: textCol, font: { size: 11 } }
+          }
+        }
+      }
+    });
+  }
+
+  function appendPowerBuffer(buffer, value) {
+    var now = new Date();
+    var label = now.toTimeString().substring(0, 8);
+    buffer.time.push(label);
+    buffer.values.push(value);
+    if (buffer.time.length > MAX_BUFFER) {
+      buffer.time.shift();
+      buffer.values.shift();
+    }
+  }
+
+  function updatePowerHistoryChart(chart, buffer, seconds) {
+    if (!chart) return;
+    var samplesPerSec = 2;
+    var maxSamples = seconds * samplesPerSec;
+    var start = Math.max(0, buffer.time.length - maxSamples);
+    chart.data.labels = buffer.time.slice(start);
+    chart.data.datasets[0].data = buffer.values.slice(start);
+  }
+
+  function initPowerHistorySelects() {
+    var fwdSel = document.getElementById('fwd-history-select');
+    if (fwdSel) {
+      fwdSel.addEventListener('change', function () {
+        fwdHistorySeconds = parseInt(fwdSel.value, 10);
+      });
+    }
+    var refSel = document.getElementById('ref-history-select');
+    if (refSel) {
+      refSel.addEventListener('change', function () {
+        refHistorySeconds = parseInt(refSel.value, 10);
+      });
+    }
+  }
+
   /* ---- Temperature Time-Series Chart ----------------------------------- */
 
   var tempChart = null;
@@ -402,6 +491,11 @@
     if (refChart) refChart.update();
     if (swrChart) swrChart.update();
 
+    updatePowerHistoryChart(fwdHistoryChart, fwdBuffer, fwdHistorySeconds);
+    if (fwdHistoryChart) fwdHistoryChart.update();
+    updatePowerHistoryChart(refHistoryChart, refBuffer, refHistorySeconds);
+    if (refHistoryChart) refHistoryChart.update();
+
     updateTempChart();
     if (tempChart) tempChart.update();
   }
@@ -431,6 +525,8 @@
     updateDbmReadout('fwd-dbm-readout', state.fwd_dbm);
     updateDbmReadout('ref-dbm-readout', state.ref_dbm);
     updateSwr(state.swr);
+    appendPowerBuffer(fwdBuffer, state.fwd_w);
+    appendPowerBuffer(refBuffer, state.ref_w);
     appendTemp(state);
 
     redrawCharts();
@@ -441,12 +537,15 @@
   function init() {
     initFaultClear();
     initWiFiClick();
+    initPowerHistorySelects();
     initHistorySelect();
 
     /* Create charts */
     fwdChart = createBarChart('fwd-chart');
     refChart = createBarChart('ref-chart');
     swrChart = createSwrChart();
+    fwdHistoryChart = createPowerHistoryChart('fwd-history-chart', I18n.t('dashboard.fwd_power'), '#22c55e');
+    refHistoryChart = createPowerHistoryChart('ref-history-chart', I18n.t('dashboard.ref_power'), '#ef4444');
     tempChart = createTempChart();
 
     loadConfig();

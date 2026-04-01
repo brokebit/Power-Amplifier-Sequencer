@@ -11,6 +11,8 @@
   "dashboard.fwd_power": "Moc FWD",
   "dashboard.ref_power": "Moc REF",
   "dashboard.swr": "SWR",
+  "dashboard.fwd_chart": "Historia mocy FWD",
+  "dashboard.ref_chart": "Historia mocy REF",
   "dashboard.temp_chart": "Temperatura",
   "dashboard.temp_history": "Historia",
   "dashboard.temp_history.5m": "5 min",

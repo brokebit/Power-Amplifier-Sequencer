@@ -99,7 +99,35 @@
       </div>
     </div>
 
-    <!-- Row 3: Temperature Chart -->
+    <!-- Row 3: Power History Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+      <div id="fwd-history-container" class="bg-bg-secondary rounded-lg p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-medium text-text-secondary" data-i18n="dashboard.fwd_chart">FWD Power History</h3>
+          <select id="fwd-history-select" class="text-sm bg-bg-primary text-text-primary border border-accent rounded px-2 py-1">
+            <option value="300">5 min</option>
+            <option value="900" selected>15 min</option>
+            <option value="1800">30 min</option>
+            <option value="3600">1 hour</option>
+          </select>
+        </div>
+        <div class="h-48"><canvas id="fwd-history-chart"></canvas></div>
+      </div>
+      <div id="ref-history-container" class="bg-bg-secondary rounded-lg p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-medium text-text-secondary" data-i18n="dashboard.ref_chart">REF Power History</h3>
+          <select id="ref-history-select" class="text-sm bg-bg-primary text-text-primary border border-accent rounded px-2 py-1">
+            <option value="300">5 min</option>
+            <option value="900" selected>15 min</option>
+            <option value="1800">30 min</option>
+            <option value="3600">1 hour</option>
+          </select>
+        </div>
+        <div class="h-48"><canvas id="ref-history-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 4: Temperature Chart -->
     <div class="mt-4">
       <div id="temp-chart-container" class="bg-bg-secondary rounded-lg p-4">
         <div class="flex items-center justify-between mb-2">

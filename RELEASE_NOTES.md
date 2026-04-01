@@ -1,6 +1,9 @@
 # Release Notes
 
 ## v1.2.1
+### ESP IDF Upgrade
+
+Upgraded to ESP IDF 5.5.3
 
 ### Power Calibration Refactor: Log-Linear Detector Support
 
@@ -46,6 +49,10 @@ When a WebSocket client sent a CLOSE frame, `ws_handler` removed the client from
 
 Fixed by calling `httpd_sess_trigger_close()` after `ws_remove_client()` in the CLOSE frame handler, which queues an immediate session teardown on the httpd task.
 
+### Web Dashboard: FWD & REF Power History Charts
+
+Added real-time time-series charts for FWD and REF power (watts) to the web dashboard. Each chart has its own history window selector (5 min / 15 min / 30 min / 1 hour) and uses the same circular buffer and throttled-redraw pattern as the existing temperature chart. The two charts sit in a responsive two-column grid row between the instantaneous power meters and the temperature chart. Translations added for English, Polish, and Russian.
+
 ### Documentation
 
 - Corrected WebSocket broadcast interval from "500 ms" to "250 ms" in `components/web_server/README.md` to match actual code (`pdMS_TO_TICKS(250)`).
@@ -63,6 +70,11 @@ Fixed by calling `httpd_sess_trigger_close()` after `ws_remove_client()` in the 
 | `components/web_server/web_ws.c` | Added `httpd_sess_trigger_close()` on WebSocket CLOSE frame |
 | `components/web_server/README.md` | Corrected broadcast interval to 250 ms |
 | `tests/test_websocket.py` | Relaxed timing assertion; added inter-test cleanup delays |
+| `web/static/index.html` | Added FWD and REF power history chart containers with history dropdowns |
+| `web/static/js/dashboard.js` | Added power history buffers, chart creation, append/update logic, and history select handlers |
+| `web/static/lang/en.json` | Added `dashboard.fwd_chart` and `dashboard.ref_chart` keys |
+| `web/static/lang/pl.json` | Added Polish translations for power history chart titles |
+| `web/static/lang/ru.json` | Added Russian translations for power history chart titles |
 
 ### Power Calibration Refactor: Log-Linear Detector Support
 
