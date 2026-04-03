@@ -90,13 +90,14 @@ static float dbm_to_watts(float dbm)
     return powf(10.0f, (dbm - 30.0f) / 10.0f);
 }
 
-/* Calculate SWR from forward and reflected voltages. */
-static float calc_swr(float vf, float vr)
+/* Calculate SWR from forward and reflected power in watts.
+   SWR = (1 + √(Pr/Pf)) / (1 − √(Pr/Pf))                */
+static float calc_swr(float pf, float pr)
 {
-    if (vf < 0.001f) {
+    if (pf < MIN_FWD_POWER_FOR_SWR_W) {
         return 1.0f;
     }
-    float gamma = vr / vf;
+    float gamma = sqrtf(pr / pf);
     if (gamma >= 1.0f) {
         return 99.9f;
     }
@@ -277,7 +278,7 @@ void monitor_task(void *arg)
                 cfg.adc_r_top_ohms, cfg.adc_r_bottom_ohms);
             last_fwd_w = dbm_to_watts(last_fwd_dbm);
             last_ref_w = dbm_to_watts(last_ref_dbm);
-            last_swr   = calc_swr(fwd_v, ref_v);
+            last_swr   = calc_swr(last_fwd_w, last_ref_w);
 
             system_state_set_sensors(last_fwd_w, last_ref_w,
                                      last_fwd_dbm, last_ref_dbm,

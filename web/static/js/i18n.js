@@ -5,6 +5,7 @@
   var STORAGE_KEY = 'pa-seq-lang';
   var translations = {};
   var currentLang = '';
+  var readyCallbacks = [];
 
   function loadLanguage(lang) {
     return fetch('/lang/' + lang + '.json')
@@ -17,6 +18,7 @@
         currentLang = lang;
         localStorage.setItem(STORAGE_KEY, lang);
         applyTranslations();
+        readyCallbacks.forEach(function (fn) { fn(); });
       })
       .catch(function (e) {
         console.warn('i18n: failed to load ' + lang + '.json:', e.message);
@@ -49,6 +51,7 @@
     load: loadLanguage,
     t: t,
     apply: applyTranslations,
+    onReady: function (fn) { readyCallbacks.push(fn); },
     currentLang: function () { return currentLang; }
   };
 })();

@@ -37,6 +37,18 @@ P_watts    = 10^((dBm_actual - 30) / 10)
 
 ### Bug Fixes
 
+**SWR: calculated from raw ADC voltages instead of calibrated power**
+
+`calc_swr()` computed the reflection coefficient as the ratio of raw ADC detector voltages (`vr / vf`). This is only correct when both detector channels have identical calibration. With the log-linear detector model introduced in v1.2.1 — where each channel has independent slope, intercept, coupling, and attenuator parameters — differing calibration values produce an incorrect voltage ratio and therefore an incorrect SWR.
+
+Fixed by computing SWR from the calibrated power values using the standard formula: `SWR = (1 + √(Pr/Pf)) / (1 − √(Pr/Pf))`.
+
+**SWR: misleading readings when idle (no meaningful RF power)**
+
+With very low forward power (hundredths of a watt from detector noise), small differences between forward and reflected readings produced wild SWR values (e.g., 4.7:1) that were meaningless noise. The `MIN_FWD_POWER_FOR_SWR_W` threshold (0.1 W) was already used to gate SWR fault detection but was not applied to the SWR calculation itself.
+
+Fixed by returning 1.0:1 from `calc_swr()` when forward power is below `MIN_FWD_POWER_FOR_SWR_W`.
+
 **HTTP: API responses hold sockets open, exhausting pool under sustained requests**
 
 API endpoints (`/api/state`, `/api/config`, etc.) returned responses without a `Connection: close` header, defaulting to HTTP/1.1 keep-alive. Under sustained API traffic (e.g., automated test suites), idle keep-alive sockets accumulated and consumed the `max_open_sockets=7` budget, preventing new connections including WebSocket upgrades.

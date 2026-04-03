@@ -81,21 +81,18 @@
     <!-- Row 2: Power Meters + SWR -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
       <div id="fwd-power-container" class="bg-bg-secondary rounded-lg p-4">
-        <h3 class="text-sm font-medium text-text-secondary mb-2" data-i18n="dashboard.fwd_power">FWD Power</h3>
+        <h3 class="text-sm font-medium text-text-secondary mb-2" data-i18n="dashboard.fwd_power">Forward Power</h3>
         <span id="fwd-readout" class="text-xl font-bold">0 W</span>
         <span id="fwd-dbm-readout" class="text-sm text-text-secondary ml-2"></span>
-        <div class="mt-2 h-6"><canvas id="fwd-chart"></canvas></div>
       </div>
       <div id="ref-power-container" class="bg-bg-secondary rounded-lg p-4">
-        <h3 class="text-sm font-medium text-text-secondary mb-2" data-i18n="dashboard.ref_power">REF Power</h3>
+        <h3 class="text-sm font-medium text-text-secondary mb-2" data-i18n="dashboard.ref_power">Reflected Power</h3>
         <span id="ref-readout" class="text-xl font-bold">0 W</span>
         <span id="ref-dbm-readout" class="text-sm text-text-secondary ml-2"></span>
-        <div class="mt-2 h-6"><canvas id="ref-chart"></canvas></div>
       </div>
       <div id="swr-container" class="bg-bg-secondary rounded-lg p-4">
         <h3 class="text-sm font-medium text-text-secondary mb-2" data-i18n="dashboard.swr">SWR</h3>
         <span id="swr-readout" class="text-xl font-bold">1.0:1</span>
-        <div class="mt-2 h-6"><canvas id="swr-chart"></canvas></div>
       </div>
     </div>
 
@@ -103,10 +100,10 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
       <div id="fwd-history-container" class="bg-bg-secondary rounded-lg p-4">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-sm font-medium text-text-secondary" data-i18n="dashboard.fwd_chart">FWD Power History</h3>
+          <h3 class="text-sm font-medium text-text-secondary" data-i18n="dashboard.fwd_chart">Forward Power History</h3>
           <select id="fwd-history-select" class="text-sm bg-bg-primary text-text-primary border border-accent rounded px-2 py-1">
-            <option value="300">5 min</option>
-            <option value="900" selected>15 min</option>
+            <option value="300" selected>5 min</option>
+            <option value="900">15 min</option>
             <option value="1800">30 min</option>
             <option value="3600">1 hour</option>
           </select>
@@ -115,10 +112,10 @@
       </div>
       <div id="ref-history-container" class="bg-bg-secondary rounded-lg p-4">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-sm font-medium text-text-secondary" data-i18n="dashboard.ref_chart">REF Power History</h3>
+          <h3 class="text-sm font-medium text-text-secondary" data-i18n="dashboard.ref_chart">Reflected Power History</h3>
           <select id="ref-history-select" class="text-sm bg-bg-primary text-text-primary border border-accent rounded px-2 py-1">
-            <option value="300">5 min</option>
-            <option value="900" selected>15 min</option>
+            <option value="300" selected>5 min</option>
+            <option value="900">15 min</option>
             <option value="1800">30 min</option>
             <option value="3600">1 hour</option>
           </select>
@@ -133,8 +130,8 @@
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-sm font-medium text-text-secondary" data-i18n="dashboard.temp_chart">Temperature</h3>
           <select id="temp-history-select" class="text-sm bg-bg-primary text-text-primary border border-accent rounded px-2 py-1">
-            <option value="300">5 min</option>
-            <option value="900" selected>15 min</option>
+            <option value="300" selected>5 min</option>
+            <option value="900">15 min</option>
             <option value="1800">30 min</option>
             <option value="3600">1 hour</option>
           </select>

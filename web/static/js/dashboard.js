@@ -3,7 +3,7 @@
   'use strict';
 
   var NUM_RELAYS = 6;
-  var REDRAW_INTERVAL = 1000;  /* ms — throttle chart redraws */
+  var REDRAW_INTERVAL = 250;  /* ms — throttle chart redraws */
 
   /* ---- Fault name → i18n key mapping ----------------------------------- */
   var FAULT_KEYS = {
@@ -167,60 +167,9 @@
     }
   }
 
-  /* ---- Power Bar Meters (Chart.js) ------------------------------------- */
+  /* ---- Power Readouts --------------------------------------------------- */
 
-  var fwdChart = null, refChart = null;
-  var fwdPeak = 10, refPeak = 10;
-  var PEAK_DECAY = 0.995; /* slow decay per update */
-
-  function niceMax(val) {
-    if (val <= 0) return 10;
-    var mag = Math.pow(10, Math.floor(Math.log10(val)));
-    return Math.ceil(val / mag * 1.2) * mag;
-  }
-
-  function createBarChart(canvasId) {
-    var ctx = document.getElementById(canvasId);
-    if (!ctx) return null;
-    return new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: [''],
-        datasets: [{
-          data: [0],
-          backgroundColor: 'var(--color-success)',
-          borderSkipped: false,
-          barPercentage: 1.0,
-          categoryPercentage: 1.0
-        }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        plugins: { legend: { display: false }, tooltip: { enabled: false } },
-        scales: {
-          x: { min: 0, max: 10, display: false },
-          y: { display: false }
-        }
-      }
-    });
-  }
-
-  function updatePowerMeter(chart, readoutId, value, peakRef) {
-    var peak = peakRef.v;
-    if (value > peak) {
-      peak = value;
-    } else {
-      peak *= PEAK_DECAY;
-    }
-    peakRef.v = peak;
-    var max = niceMax(peak);
-
-    chart.data.datasets[0].data[0] = value;
-    chart.options.scales.x.max = max;
-
+  function updatePowerReadout(readoutId, value) {
     var el = document.getElementById(readoutId);
     if (el) el.textContent = value.toFixed(1) + ' W';
   }
@@ -235,55 +184,18 @@
     }
   }
 
-  /* ---- SWR Bar Meter --------------------------------------------------- */
+  /* ---- SWR Readout ------------------------------------------------------ */
 
-  var swrChart = null;
   var swrThreshold = 3.0;
 
-  function createSwrChart() {
-    var ctx = document.getElementById('swr-chart');
-    if (!ctx) return null;
-    return new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: [''],
-        datasets: [{
-          data: [0],
-          backgroundColor: 'var(--color-success)',
-          borderSkipped: false,
-          barPercentage: 1.0,
-          categoryPercentage: 1.0
-        }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        plugins: { legend: { display: false }, tooltip: { enabled: false } },
-        scales: {
-          x: { min: 1, max: swrThreshold + 1, display: false },
-          y: { display: false }
-        }
-      }
-    });
-  }
-
-  function swrColor(swr) {
-    if (swr < 2.0) return 'var(--color-success)';
-    if (swr < swrThreshold) return 'var(--color-warning)';
-    return 'var(--color-danger)';
-  }
-
   function updateSwr(value) {
-    if (!swrChart) return;
-    swrChart.data.datasets[0].data[0] = value;
-    swrChart.data.datasets[0].backgroundColor = swrColor(value);
-    var max = Math.max(swrThreshold + 1, value * 1.2);
-    swrChart.options.scales.x.max = max;
-
     var el = document.getElementById('swr-readout');
     if (el) el.textContent = value.toFixed(1) + ':1';
+
+    var container = document.getElementById('swr-container');
+    if (container) {
+      container.classList.toggle('bg-warning/30', value >= 2.0);
+    }
   }
 
   /* ---- Power Time-Series Charts ----------------------------------------- */
@@ -291,8 +203,8 @@
   var fwdHistoryChart = null, refHistoryChart = null;
   var fwdBuffer = { time: [], values: [] };
   var refBuffer = { time: [], values: [] };
-  var fwdHistorySeconds = 900; /* default 15 min */
-  var refHistorySeconds = 900;
+  var fwdHistorySeconds = 300; /* default 5 min */
+  var refHistorySeconds = 300;
 
   function createPowerHistoryChart(canvasId, label, color) {
     var ctx = document.getElementById(canvasId);
@@ -331,6 +243,7 @@
             grid: { color: gridCol }
           },
           y: {
+            beginAtZero: true,
             ticks: { color: textCol, font: { size: 10 } },
             grid: { color: gridCol },
             title: { display: true, text: 'W', color: textCol, font: { size: 11 } }
@@ -380,7 +293,7 @@
   var tempChart = null;
   var tempBuffer = { time: [], temp1: [], temp2: [] };
   var MAX_BUFFER = 7200; /* 1 hour at 500ms intervals */
-  var historySeconds = 900; /* default 15 min */
+  var historySeconds = 300; /* default 5 min */
   var temp1Threshold = 65;
   var temp2Threshold = 65;
 
@@ -479,17 +392,11 @@
   /* ---- Chart redraw throttle ------------------------------------------- */
 
   var lastRedraw = 0;
-  var fwdPeakRef = { v: 10 };
-  var refPeakRef = { v: 10 };
 
   function redrawCharts() {
     var now = Date.now();
     if (now - lastRedraw < REDRAW_INTERVAL) return;
     lastRedraw = now;
-
-    if (fwdChart) fwdChart.update();
-    if (refChart) refChart.update();
-    if (swrChart) swrChart.update();
 
     updatePowerHistoryChart(fwdHistoryChart, fwdBuffer, fwdHistorySeconds);
     if (fwdHistoryChart) fwdHistoryChart.update();
@@ -520,8 +427,8 @@
     updateWiFi(state);
     updateRelays(state);
 
-    if (fwdChart) updatePowerMeter(fwdChart, 'fwd-readout', state.fwd_w, fwdPeakRef);
-    if (refChart) updatePowerMeter(refChart, 'ref-readout', state.ref_w, refPeakRef);
+    updatePowerReadout('fwd-readout', state.fwd_w);
+    updatePowerReadout('ref-readout', state.ref_w);
     updateDbmReadout('fwd-dbm-readout', state.fwd_dbm);
     updateDbmReadout('ref-dbm-readout', state.ref_dbm);
     updateSwr(state.swr);
@@ -541,15 +448,21 @@
     initHistorySelect();
 
     /* Create charts */
-    fwdChart = createBarChart('fwd-chart');
-    refChart = createBarChart('ref-chart');
-    swrChart = createSwrChart();
     fwdHistoryChart = createPowerHistoryChart('fwd-history-chart', I18n.t('dashboard.fwd_power'), '#22c55e');
     refHistoryChart = createPowerHistoryChart('ref-history-chart', I18n.t('dashboard.ref_power'), '#ef4444');
     tempChart = createTempChart();
 
     loadConfig();
     WS.addListener(onState);
+
+    I18n.onReady(function () {
+      if (fwdHistoryChart) fwdHistoryChart.data.datasets[0].label = I18n.t('dashboard.fwd_power');
+      if (refHistoryChart) refHistoryChart.data.datasets[0].label = I18n.t('dashboard.ref_power');
+      if (tempChart) {
+        tempChart.data.datasets[0].label = I18n.t('dashboard.temp1');
+        tempChart.data.datasets[1].label = I18n.t('dashboard.temp2');
+      }
+    });
   }
 
   window.Dashboard = { init: init, loadConfig: loadConfig };
