@@ -21,7 +21,7 @@
 static const char *TAG = "monitor";
 
 /* Minimum forward power (W) below which SWR is not checked. */
-#define MIN_FWD_POWER_FOR_SWR_W  0.1f
+#define MIN_FWD_POWER_FOR_SWR_W  0.5f
 
 /* Assumed supply voltage for thermistor divider (VCC → R_series → NTC → GND) */
 #define THERMISTOR_VCC  3.3f
