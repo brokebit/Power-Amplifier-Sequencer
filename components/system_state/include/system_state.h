@@ -29,6 +29,12 @@ typedef struct {
     float temp1_c;
     float temp2_c;
 
+    /* Chip 0 ADC — corrected (pre-divider) voltages */
+    float adc_0_ch0;
+    float adc_0_ch1;
+    float adc_0_ch2;
+    float adc_0_ch3;
+
     /* WiFi status */
     bool wifi_connected;
     uint32_t wifi_ip_addr; /* network byte order */
@@ -45,6 +51,7 @@ void system_state_set_sequencer(uint8_t state, uint8_t fault);
 void system_state_set_sensors(float fwd_w, float ref_w,
                               float fwd_dbm, float ref_dbm,
                               float swr, float temp1_c, float temp2_c);
+void system_state_set_adc0(float ch0, float ch1, float ch2, float ch3);
 void system_state_set_wifi(bool connected, uint32_t ip_addr, int8_t rssi);
 
 /* ---------------------------------------------------------

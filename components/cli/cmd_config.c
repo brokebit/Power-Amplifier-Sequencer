@@ -32,9 +32,28 @@ static void print_config(const app_config_t *cfg)
     printf("  ref_intercept   = %.1f dBm\n", cfg->ref_intercept_dbm);
     printf("  ref_coupling    = %.1f dB\n", cfg->ref_coupling_db);
     printf("  ref_atten       = %.1f dB\n", cfg->ref_attenuator_db);
-    printf("ADC divider:\n");
-    printf("  adc_r_top       = %.0f ohms\n", cfg->adc_r_top_ohms);
-    printf("  adc_r_bottom    = %.0f ohms\n", cfg->adc_r_bottom_ohms);
+    printf("ADC dividers (chip 1):\n");
+    printf("  adc_1a_r_top    = %.0f ohms  (AIN0 fwd)\n", cfg->adc_1a_r_top_ohms);
+    printf("  adc_1a_r_bottom = %.0f ohms\n", cfg->adc_1a_r_bottom_ohms);
+    printf("  adc_1b_r_top    = %.0f ohms  (AIN1 ref)\n", cfg->adc_1b_r_top_ohms);
+    printf("  adc_1b_r_bottom = %.0f ohms\n", cfg->adc_1b_r_bottom_ohms);
+    printf("ADC dividers (chip 0):\n");
+    printf("  adc_0a_r_top    = %.0f ohms  (AIN0)\n", cfg->adc_0a_r_top_ohms);
+    printf("  adc_0a_r_bottom = %.0f ohms\n", cfg->adc_0a_r_bottom_ohms);
+    printf("  adc_0b_r_top    = %.0f ohms  (AIN1)\n", cfg->adc_0b_r_top_ohms);
+    printf("  adc_0b_r_bottom = %.0f ohms\n", cfg->adc_0b_r_bottom_ohms);
+    printf("  adc_0c_r_top    = %.0f ohms  (AIN2)\n", cfg->adc_0c_r_top_ohms);
+    printf("  adc_0c_r_bottom = %.0f ohms\n", cfg->adc_0c_r_bottom_ohms);
+    printf("  adc_0d_r_top    = %.0f ohms  (AIN3)\n", cfg->adc_0d_r_top_ohms);
+    printf("  adc_0d_r_bottom = %.0f ohms\n", cfg->adc_0d_r_bottom_ohms);
+    printf("ADC channel names (chip 0):\n");
+    for (int i = 0; i < 4; i++) {
+        if (cfg->adc_0_ch_names[i][0] != '\0') {
+            printf("  CH%d = %s\n", i, cfg->adc_0_ch_names[i]);
+        } else {
+            printf("  CH%d = (none)\n", i);
+        }
+    }
 
     printf("Thermistor:\n");
     printf("  therm_beta      = %.0f\n", cfg->thermistor_beta);
@@ -103,7 +122,9 @@ static int cmd_config_handler(int argc, char **argv)
             printf("Keys: swr_threshold temp1_threshold temp2_threshold\n"
                    "      fwd_slope fwd_intercept fwd_coupling fwd_atten\n"
                    "      ref_slope ref_intercept ref_coupling ref_atten\n"
-                   "      adc_r_top adc_r_bottom\n"
+                   "      adc_1a_r_top adc_1a_r_bottom adc_1b_r_top adc_1b_r_bottom\n"
+                   "      adc_0a_r_top adc_0a_r_bottom adc_0b_r_top adc_0b_r_bottom\n"
+                   "      adc_0c_r_top adc_0c_r_bottom adc_0d_r_top adc_0d_r_bottom\n"
                    "      therm_beta therm_r0 therm_rseries pa_relay\n");
             return 1;
         }

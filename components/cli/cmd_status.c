@@ -37,6 +37,17 @@ static int cmd_status_handler(int argc, char **argv)
     printf("Temp1: %.1fC  Temp2: %.1fC\n",
            ss.temp1_c, ss.temp2_c);
 
+    {
+        const float adc0[] = { ss.adc_0_ch0, ss.adc_0_ch1, ss.adc_0_ch2, ss.adc_0_ch3 };
+        const char *defaults[] = { "CH0", "CH1", "CH2", "CH3" };
+        printf("ADC0:");
+        for (int i = 0; i < 4; i++) {
+            const char *name = snap.adc_0_ch_names[i][0] ? snap.adc_0_ch_names[i] : defaults[i];
+            printf("  %s=%.3fV", name, adc0[i]);
+        }
+        printf("\n");
+    }
+
     if (ss.wifi_connected) {
         uint32_t ip = ss.wifi_ip_addr;
         printf("WiFi: connected  IP: %lu.%lu.%lu.%lu  RSSI: %d dBm\n",

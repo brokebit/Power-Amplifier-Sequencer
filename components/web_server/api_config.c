@@ -36,9 +36,19 @@ static esp_err_t api_config_get_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(data, "ref_coupling", snap.ref_coupling_db);
     cJSON_AddNumberToObject(data, "ref_atten", snap.ref_attenuator_db);
 
-    /* ADC divider */
-    cJSON_AddNumberToObject(data, "adc_r_top", snap.adc_r_top_ohms);
-    cJSON_AddNumberToObject(data, "adc_r_bottom", snap.adc_r_bottom_ohms);
+    /* ADC dividers — per-channel */
+    cJSON_AddNumberToObject(data, "adc_1a_r_top", snap.adc_1a_r_top_ohms);
+    cJSON_AddNumberToObject(data, "adc_1a_r_bottom", snap.adc_1a_r_bottom_ohms);
+    cJSON_AddNumberToObject(data, "adc_1b_r_top", snap.adc_1b_r_top_ohms);
+    cJSON_AddNumberToObject(data, "adc_1b_r_bottom", snap.adc_1b_r_bottom_ohms);
+    cJSON_AddNumberToObject(data, "adc_0a_r_top", snap.adc_0a_r_top_ohms);
+    cJSON_AddNumberToObject(data, "adc_0a_r_bottom", snap.adc_0a_r_bottom_ohms);
+    cJSON_AddNumberToObject(data, "adc_0b_r_top", snap.adc_0b_r_top_ohms);
+    cJSON_AddNumberToObject(data, "adc_0b_r_bottom", snap.adc_0b_r_bottom_ohms);
+    cJSON_AddNumberToObject(data, "adc_0c_r_top", snap.adc_0c_r_top_ohms);
+    cJSON_AddNumberToObject(data, "adc_0c_r_bottom", snap.adc_0c_r_bottom_ohms);
+    cJSON_AddNumberToObject(data, "adc_0d_r_top", snap.adc_0d_r_top_ohms);
+    cJSON_AddNumberToObject(data, "adc_0d_r_bottom", snap.adc_0d_r_bottom_ohms);
 
     /* Thermistor */
     cJSON_AddNumberToObject(data, "therm_beta", snap.thermistor_beta);
@@ -52,6 +62,14 @@ static esp_err_t api_config_get_handler(httpd_req_t *req)
             cJSON_CreateString(snap.relay_names[i][0] ? snap.relay_names[i] : ""));
     }
     cJSON_AddItemToObject(data, "relay_names", names);
+
+    /* ADC chip 0 channel names */
+    cJSON *adc_names = cJSON_CreateArray();
+    for (int i = 0; i < 4; i++) {
+        cJSON_AddItemToArray(adc_names,
+            cJSON_CreateString(snap.adc_0_ch_names[i][0] ? snap.adc_0_ch_names[i] : ""));
+    }
+    cJSON_AddItemToObject(data, "adc_0_ch_names", adc_names);
 
     /* TX sequence */
     cJSON *tx = cJSON_CreateArray();

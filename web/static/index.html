@@ -96,6 +96,26 @@
       </div>
     </div>
 
+    <!-- Row 2b: ADC Chip 0 Channels -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+      <div class="bg-bg-secondary rounded-lg p-4">
+        <h3 id="adc0-label-0" class="text-sm font-medium text-text-secondary mb-2">AIN0</h3>
+        <span id="adc0-readout-0" class="text-xl font-bold">0.000 V</span>
+      </div>
+      <div class="bg-bg-secondary rounded-lg p-4">
+        <h3 id="adc0-label-1" class="text-sm font-medium text-text-secondary mb-2">AIN1</h3>
+        <span id="adc0-readout-1" class="text-xl font-bold">0.000 V</span>
+      </div>
+      <div class="bg-bg-secondary rounded-lg p-4">
+        <h3 id="adc0-label-2" class="text-sm font-medium text-text-secondary mb-2">AIN2</h3>
+        <span id="adc0-readout-2" class="text-xl font-bold">0.000 V</span>
+      </div>
+      <div class="bg-bg-secondary rounded-lg p-4">
+        <h3 id="adc0-label-3" class="text-sm font-medium text-text-secondary mb-2">AIN3</h3>
+        <span id="adc0-readout-3" class="text-xl font-bold">0.000 V</span>
+      </div>
+    </div>
+
     <!-- Row 3: Power History Charts -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
       <div id="fwd-history-container" class="bg-bg-secondary rounded-lg p-4">
@@ -184,6 +204,15 @@
     <section id="config-relay-names" class="bg-bg-secondary rounded-lg p-4 mb-4">
       <h2 class="text-lg font-semibold mb-3" data-i18n="config.relay_names">Relay Names</h2>
       <div id="cfg-relay-names"></div>
+      <div class="mt-4">
+        <button class="cfg-save-apply px-4 py-2 bg-accent text-white rounded font-medium hover:opacity-90 transition-opacity" data-i18n="config.save_apply">Save and Apply</button>
+      </div>
+    </section>
+
+    <!-- ADC Channel Names Section -->
+    <section id="config-adc-names" class="bg-bg-secondary rounded-lg p-4 mb-4">
+      <h2 class="text-lg font-semibold mb-3" data-i18n="config.adc_ch_names">ADC Channel Names</h2>
+      <div id="cfg-adc-names"></div>
       <div class="mt-4">
         <button class="cfg-save-apply px-4 py-2 bg-accent text-white rounded font-medium hover:opacity-90 transition-opacity" data-i18n="config.save_apply">Save and Apply</button>
       </div>

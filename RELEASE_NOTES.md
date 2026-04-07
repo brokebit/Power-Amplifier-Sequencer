@@ -1,5 +1,59 @@
 # Release Notes
 
+## v1.3.0
+### Dual ADC Support (ADS1115 Chip 0)
+
+Enabled the second ADS1115 at address 0x48 (chip 0). Both chips are now fully active with independent ISRs, per-chip queues, and per-channel resistor divider configuration. Chip 0 provides four general-purpose ADC channels alongside chip 1's existing forward power, reflected power, and temperature channels.
+
+**Per-chip ISR isolation:** Each ADS1115 now has its own FreeRTOS queue and ALERT/RDY ISR. This eliminates cross-talk where a conversion-ready interrupt from one chip could be consumed by a read on the other chip.
+
+**`read_channel()` chip parameter:** The internal `read_channel()` function and the public `monitor_read_channel()` API now accept an `int chip` argument (0 or 1), allowing callers to specify which ADS1115 to read.
+
+### Per-Channel Resistor Divider Configuration
+
+Replaced the single shared `adc_r_top` / `adc_r_bottom` config with per-channel divider pairs. This allows independent divider calibration for each ADC input.
+
+**New config parameters** (replacing `adc_r_top` and `adc_r_bottom`):
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `adc_1a_r_top` / `adc_1a_r_bottom` | Chip 1 AIN0 (fwd power) divider | 10000 / 15000 |
+| `adc_1b_r_top` / `adc_1b_r_bottom` | Chip 1 AIN1 (ref power) divider | 10000 / 15000 |
+| `adc_0a_r_top` / `adc_0a_r_bottom` | Chip 0 AIN0 divider | 10000 / 15000 |
+| `adc_0b_r_top` / `adc_0b_r_bottom` | Chip 0 AIN1 divider | 10000 / 15000 |
+| `adc_0c_r_top` / `adc_0c_r_bottom` | Chip 0 AIN2 divider | 10000 / 15000 |
+| `adc_0d_r_top` / `adc_0d_r_bottom` | Chip 0 AIN3 divider | 10000 / 15000 |
+
+**Removed config parameters:** `adc_r_top`, `adc_r_bottom` (replaced by per-channel pairs above).
+
+### Chip 0 ADC Channel Names
+
+Configurable display names for chip 0's four channels, following the same pattern as relay names.
+
+- **CLI:** `adc name` shows all names, `adc name <0-3> <label>` sets a name, `adc name <0-3>` clears it.
+- **Web API:** `POST /api/adc/name` with `{ "ch": 0, "name": "My Sensor" }`. Send `name: null` to clear.
+- **Web UI:** New "ADC Channel Names" section on the config page with input fields for all four channels.
+- **Config show:** `config show` displays channel names under "ADC channel names (chip 0)".
+
+### Chip 0 Readings in Status, Monitor, and REST API
+
+The `monitor_task` now reads all four chip 0 channels each cycle, applies the per-channel resistor divider correction to recover pre-divider voltage, and publishes the corrected values to system state.
+
+- **`status` command:** New line: `ADC0: CH0=1.234V  CH1=2.345V  CH2=0.567V  CH3=3.210V`
+- **`monitor` command:** Appends `A0:1.2/2.3/0.6/3.2V` to each line.
+- **`monitor csv` command:** Four additional columns at the end of each row.
+- **`adc scan` command:** Now scans both chips (chip 0 and chip 1).
+- **`GET /api/state`:** New fields `adc_0_ch0` through `adc_0_ch3` and `adc_0_ch_names` array in the JSON response (also pushed via WebSocket).
+- **`GET /api/config`:** Returns all 12 divider parameters and the `adc_0_ch_names` array.
+
+### Web Dashboard — Chip 0 ADC Readouts
+
+Added a new row on the dashboard below the forward/reflected power meters showing all four chip 0 ADC channel voltages in real time. Each card displays the configured channel name (or defaults to AIN0–AIN3 if no name is set) and the corrected voltage updated live via WebSocket.
+
+### NVS Config Reset
+
+The `app_config_t` struct layout has changed (new divider fields, channel names). On first boot after upgrading, the firmware detects the size mismatch and resets all configuration to factory defaults. Users must re-enter their settings.
+
 ## v1.2.1
 ### ESP IDF Upgrade
 

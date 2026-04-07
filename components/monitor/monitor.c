@@ -33,20 +33,27 @@ static portMUX_TYPE s_cfg_mux = portMUX_INITIALIZER_UNLOCKED;
 static i2c_master_bus_handle_t s_bus;
 static ads1115_handle_t s_chip[2];  /* [0]=0x48 reserved, [1]=0x49 active */
 
-/* ALERT/RDY events from ISRs. Item = chip index (0 or 1).
- * Only chip 1 has an ISR installed; chip 0 is reserved for future use. */
-static QueueHandle_t s_adc_queue;
+/* ALERT/RDY events from ISRs — one queue per chip. */
+static QueueHandle_t s_adc_queue[2];
 
 /* Mutex protecting ADC access — shared between monitor_task and CLI */
 static SemaphoreHandle_t s_adc_mutex;
 
-/* ---- ISR handler (chip 1 only) ----------------------------------------- */
+/* ---- ISR handlers ------------------------------------------------------ */
+
+static void IRAM_ATTR alert0_isr(void *arg)
+{
+    BaseType_t woken = pdFALSE;
+    uint8_t chip = 0;
+    xQueueSendFromISR(s_adc_queue[0], &chip, &woken);
+    portYIELD_FROM_ISR(woken);
+}
 
 static void IRAM_ATTR alert1_isr(void *arg)
 {
     BaseType_t woken = pdFALSE;
     uint8_t chip = 1;
-    xQueueSendFromISR(s_adc_queue, &chip, &woken);
+    xQueueSendFromISR(s_adc_queue[1], &chip, &woken);
     portYIELD_FROM_ISR(woken);
 }
 
@@ -106,7 +113,7 @@ static float calc_swr(float pf, float pr)
 
 /* ---- forward declarations ----------------------------------------------- */
 
-static float read_channel(ads1115_channel_t ch);
+static float read_channel(int chip, ads1115_channel_t ch);
 
 /* ---- fault injection ---------------------------------------------------- */
 
@@ -118,7 +125,7 @@ static void inject_fault(seq_fault_t fault)
 
 /* ---- public API --------------------------------------------------------- */
 
-esp_err_t monitor_read_channel(ads1115_channel_t ch, float *out_voltage)
+esp_err_t monitor_read_channel(int chip, ads1115_channel_t ch, float *out_voltage)
 {
     if (!s_adc_mutex) {
         return ESP_ERR_INVALID_STATE;
@@ -127,7 +134,7 @@ esp_err_t monitor_read_channel(ads1115_channel_t ch, float *out_voltage)
         return ESP_ERR_TIMEOUT;
     }
 
-    float v = read_channel(ch);
+    float v = read_channel(chip, ch);
 
     xSemaphoreGive(s_adc_mutex);
 
@@ -151,10 +158,11 @@ esp_err_t monitor_init(void)
 {
     config_snapshot(&s_cfg);
 
-    s_adc_queue = xQueueCreate(8, sizeof(uint8_t));
-    if (!s_adc_queue) {
-        return ESP_ERR_NO_MEM;
-    }
+    s_adc_queue[0] = xQueueCreate(4, sizeof(uint8_t));
+    if (!s_adc_queue[0]) return ESP_ERR_NO_MEM;
+
+    s_adc_queue[1] = xQueueCreate(4, sizeof(uint8_t));
+    if (!s_adc_queue[1]) return ESP_ERR_NO_MEM;
 
     s_adc_mutex = xSemaphoreCreateMutex();
     if (!s_adc_mutex) {
@@ -188,19 +196,19 @@ esp_err_t monitor_init(void)
         return ret;
     }
 
-    /* ALERT/RDY GPIO — chip 1 only has an ISR; chip 0 is input+pullup, no handler */
+    /* ALERT/RDY GPIO — falling-edge ISR for both chips */
     gpio_install_isr_service(0);   /* no-op if already installed */
 
     gpio_config_t io = {
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,       /* no ISR for chip 0 */
+        .intr_type = GPIO_INTR_NEGEDGE,
     };
     io.pin_bit_mask = 1ULL << HW_ADS1115_0_ALRT_GPIO;
     gpio_config(&io);
+    gpio_isr_handler_add(HW_ADS1115_0_ALRT_GPIO, alert0_isr, NULL);
 
-    io.intr_type    = GPIO_INTR_NEGEDGE;         /* ISR for chip 1 */
     io.pin_bit_mask = 1ULL << HW_ADS1115_1_ALRT_GPIO;
     gpio_config(&io);
     gpio_isr_handler_add(HW_ADS1115_1_ALRT_GPIO, alert1_isr, NULL);
@@ -212,34 +220,34 @@ esp_err_t monitor_init(void)
 }
 
 /**
- * Read one channel from chip 1 via single-shot conversion.
+ * Read one channel via single-shot conversion.
  * Triggers conversion, waits for ALERT/RDY, reads result.
  * Returns voltage (clamped >= 0) or -1.0f on failure.
  */
-static float read_channel(ads1115_channel_t ch)
+static float read_channel(int chip, ads1115_channel_t ch)
 {
     /* Drain any stale ALERT event */
     uint8_t dummy;
-    while (xQueueReceive(s_adc_queue, &dummy, 0) == pdTRUE) {}
+    while (xQueueReceive(s_adc_queue[chip], &dummy, 0) == pdTRUE) {}
 
-    if (ads1115_start_single_shot(s_chip[1], ch) != ESP_OK) {
-        ESP_LOGW(TAG, "start failed ch %d", ch);
+    if (ads1115_start_single_shot(s_chip[chip], ch) != ESP_OK) {
+        ESP_LOGW(TAG, "start failed chip %d ch %d", chip, ch);
         return -1.0f;
     }
 
     /* Wait for ALERT/RDY — 250ms timeout (conversion takes ~125ms at 8 SPS) */
-    if (xQueueReceive(s_adc_queue, &dummy, pdMS_TO_TICKS(250)) != pdTRUE) {
-        ESP_LOGW(TAG, "timeout ch %d", ch);
+    if (xQueueReceive(s_adc_queue[chip], &dummy, pdMS_TO_TICKS(250)) != pdTRUE) {
+        ESP_LOGW(TAG, "timeout chip %d ch %d", chip, ch);
         return -1.0f;
     }
 
     int16_t raw;
-    if (ads1115_read_raw(s_chip[1], &raw) != ESP_OK) {
-        ESP_LOGW(TAG, "read failed ch %d", ch);
+    if (ads1115_read_raw(s_chip[chip], &raw) != ESP_OK) {
+        ESP_LOGW(TAG, "read failed chip %d ch %d", chip, ch);
         return -1.0f;
     }
 
-    return fmaxf(ads1115_raw_to_voltage(s_chip[1], raw), 0.0f);
+    return fmaxf(ads1115_raw_to_voltage(s_chip[chip], raw), 0.0f);
 }
 
 void monitor_task(void *arg)
@@ -264,18 +272,18 @@ void monitor_task(void *arg)
         xSemaphoreTake(s_adc_mutex, portMAX_DELAY);
 
         /* ---- Forward + Reflected power ---- */
-        float fwd_v = read_channel(ADS1115_CHANNEL_0);
-        float ref_v = read_channel(ADS1115_CHANNEL_1);
+        float fwd_v = read_channel(1, ADS1115_CHANNEL_0);
+        float ref_v = read_channel(1, ADS1115_CHANNEL_1);
 
         if (fwd_v >= 0.0f && ref_v >= 0.0f) {
             last_fwd_dbm = adc_voltage_to_dbm(fwd_v,
                 cfg.fwd_slope_mv_per_db, cfg.fwd_intercept_dbm,
                 cfg.fwd_coupling_db, cfg.fwd_attenuator_db,
-                cfg.adc_r_top_ohms, cfg.adc_r_bottom_ohms);
+                cfg.adc_1a_r_top_ohms, cfg.adc_1a_r_bottom_ohms);
             last_ref_dbm = adc_voltage_to_dbm(ref_v,
                 cfg.ref_slope_mv_per_db, cfg.ref_intercept_dbm,
                 cfg.ref_coupling_db, cfg.ref_attenuator_db,
-                cfg.adc_r_top_ohms, cfg.adc_r_bottom_ohms);
+                cfg.adc_1b_r_top_ohms, cfg.adc_1b_r_bottom_ohms);
             last_fwd_w = dbm_to_watts(last_fwd_dbm);
             last_ref_w = dbm_to_watts(last_ref_dbm);
             last_swr   = calc_swr(last_fwd_w, last_ref_w);
@@ -292,7 +300,7 @@ void monitor_task(void *arg)
         }
 
         /* ---- Temperature 1 ---- */
-        float t1_v = read_channel(ADS1115_CHANNEL_2);
+        float t1_v = read_channel(1, ADS1115_CHANNEL_2);
         if (t1_v > 0.0f) {
             float temp_c = voltage_to_temp_c(t1_v, &cfg);
             last_temp1 = temp_c;
@@ -307,7 +315,7 @@ void monitor_task(void *arg)
         }
 
         /* ---- Temperature 2 ---- */
-        float t2_v = read_channel(ADS1115_CHANNEL_3);
+        float t2_v = read_channel(1, ADS1115_CHANNEL_3);
         if (t2_v > 0.0f) {
             float temp_c = voltage_to_temp_c(t2_v, &cfg);
             last_temp2 = temp_c;
@@ -319,6 +327,36 @@ void monitor_task(void *arg)
                          temp_c, cfg.temp2_fault_threshold_c);
                 inject_fault(SEQ_FAULT_OVER_TEMP2);
             }
+        }
+
+        /* ---- Chip 0 — four general-purpose channels ---- */
+        {
+            static const struct {
+                ads1115_channel_t ch;
+                size_t top_off;
+                size_t bot_off;
+            } ch0_map[] = {
+                { ADS1115_CHANNEL_0, offsetof(app_config_t, adc_0a_r_top_ohms),
+                                     offsetof(app_config_t, adc_0a_r_bottom_ohms) },
+                { ADS1115_CHANNEL_1, offsetof(app_config_t, adc_0b_r_top_ohms),
+                                     offsetof(app_config_t, adc_0b_r_bottom_ohms) },
+                { ADS1115_CHANNEL_2, offsetof(app_config_t, adc_0c_r_top_ohms),
+                                     offsetof(app_config_t, adc_0c_r_bottom_ohms) },
+                { ADS1115_CHANNEL_3, offsetof(app_config_t, adc_0d_r_top_ohms),
+                                     offsetof(app_config_t, adc_0d_r_bottom_ohms) },
+            };
+            float corrected[4] = {0};
+            for (int i = 0; i < 4; i++) {
+                float v = read_channel(0, ch0_map[i].ch);
+                if (v >= 0.0f) {
+                    float r_top = *(const float *)((const char *)&cfg + ch0_map[i].top_off);
+                    float r_bot = *(const float *)((const char *)&cfg + ch0_map[i].bot_off);
+                    float ratio = r_bot / (r_top + r_bot);
+                    corrected[i] = (ratio > 0.0f) ? v / ratio : v;
+                }
+            }
+            system_state_set_adc0(corrected[0], corrected[1],
+                                  corrected[2], corrected[3]);
         }
 
         xSemaphoreGive(s_adc_mutex);

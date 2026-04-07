@@ -33,7 +33,7 @@ esp_err_t monitor_update_config(const app_config_t *cfg);
  * called from any task without conflicting with monitor_task.
  * Returns ESP_OK on success, voltage written to *out_voltage.
  */
-esp_err_t monitor_read_channel(ads1115_channel_t ch, float *out_voltage);
+esp_err_t monitor_read_channel(int chip, ads1115_channel_t ch, float *out_voltage);
 
 #ifdef __cplusplus
 }

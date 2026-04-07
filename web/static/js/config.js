@@ -19,8 +19,18 @@
     { section: 'power',  key: 'ref_intercept',   i18n: 'config.ref_intercept',   step: 0.1, suffix: 'dBm' },
     { section: 'power',  key: 'ref_coupling',    i18n: 'config.ref_coupling',    step: 0.1, max: 0, suffix: 'dB' },
     { section: 'power',  key: 'ref_atten',       i18n: 'config.ref_atten',       step: 0.1, min: 0, suffix: 'dB' },
-    { section: 'divider', key: 'adc_r_top',       i18n: 'config.adc_r_top',       step: 1, min: 0, suffix: '\u03a9' },
-    { section: 'divider', key: 'adc_r_bottom',    i18n: 'config.adc_r_bottom',    step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_1a_r_top',     i18n: 'config.adc_1a_r_top',    step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_1a_r_bottom',  i18n: 'config.adc_1a_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_1b_r_top',     i18n: 'config.adc_1b_r_top',    step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_1b_r_bottom',  i18n: 'config.adc_1b_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0a_r_top',     i18n: 'config.adc_0a_r_top',    step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0a_r_bottom',  i18n: 'config.adc_0a_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0b_r_top',     i18n: 'config.adc_0b_r_top',    step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0b_r_bottom',  i18n: 'config.adc_0b_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0c_r_top',     i18n: 'config.adc_0c_r_top',    step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0c_r_bottom',  i18n: 'config.adc_0c_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0d_r_top',     i18n: 'config.adc_0d_r_top',    step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0d_r_bottom',  i18n: 'config.adc_0d_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
     { section: 'therm',  key: 'therm_beta',       i18n: 'config.therm_beta',      step: 1,   min: 1,   suffix: '' },
     { section: 'therm',  key: 'therm_r0',         i18n: 'config.therm_r0',        step: 1,   min: 1,   suffix: '\u03a9' },
     { section: 'therm',  key: 'therm_rseries',    i18n: 'config.therm_rseries',   step: 1,   min: 1,   suffix: '\u03a9' }
@@ -157,6 +167,54 @@
   function submitRelayName(input, relayId) {
     var name = input.value.trim();
     App.apiPost('/api/relay/name', { id: relayId, name: name || null })
+      .then(function () { flashBorder(input, 'border-success'); })
+      .catch(function (err) {
+        flashBorder(input, 'border-danger');
+        App.toast(err.message, 'error');
+      });
+  }
+
+  /* ---- Build ADC channel names UI --------------------------------------- */
+
+  var adcNamesBuilt = false;
+
+  function buildAdcNames() {
+    var container = document.getElementById('cfg-adc-names');
+    if (!container || adcNamesBuilt) return;
+    adcNamesBuilt = true;
+
+    for (var i = 0; i < 4; i++) {
+      var row = document.createElement('div');
+      row.className = 'flex items-center gap-2 mb-1.5';
+
+      var label = document.createElement('label');
+      label.className = 'text-sm text-text-primary w-20 shrink-0';
+      label.textContent = 'CH' + i + ':';
+      label.setAttribute('for', 'cfg-adc-name-' + i);
+
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.id = 'cfg-adc-name-' + i;
+      input.className = 'cfg-input w-40 bg-bg-primary text-text-primary border border-accent rounded px-2 py-1 text-sm transition-colors';
+      input.maxLength = 15;
+      input.setAttribute('data-ch', i);
+
+      row.appendChild(label);
+      row.appendChild(input);
+      container.appendChild(row);
+
+      (function (inp, ch) {
+        inp.addEventListener('blur', function () { submitAdcName(inp, ch); });
+        inp.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') inp.blur();
+        });
+      })(input, i);
+    }
+  }
+
+  function submitAdcName(input, ch) {
+    var name = input.value.trim();
+    App.apiPost('/api/adc/name', { ch: ch, name: name || null })
       .then(function () { flashBorder(input, 'border-success'); })
       .catch(function (err) {
         flashBorder(input, 'border-danger');
@@ -441,6 +499,15 @@
           input.value = names[i] || '';
         }
       }
+
+      /* Populate ADC channel names */
+      var adcNames = cfg.adc_0_ch_names || [];
+      for (var i = 0; i < 4; i++) {
+        var input = document.getElementById('cfg-adc-name-' + i);
+        if (input) {
+          input.value = adcNames[i] || '';
+        }
+      }
     }).catch(function (err) {
       App.toast(I18n.t('error.load_failed') + ': ' + err.message, 'error');
     });
@@ -454,6 +521,7 @@
   function init() {
     buildThresholds();
     buildRelayNames();
+    buildAdcNames();
     buildOTA();
     buildSystem();
     initCollapsible();

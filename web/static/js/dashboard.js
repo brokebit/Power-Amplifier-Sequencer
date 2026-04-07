@@ -184,6 +184,20 @@
     }
   }
 
+  /* ---- ADC Chip 0 Readouts ---------------------------------------------- */
+
+  function updateAdc0(state) {
+    var names = state.adc_0_ch_names || [];
+    var defaults = ['AIN0', 'AIN1', 'AIN2', 'AIN3'];
+    var values = [state.adc_0_ch0, state.adc_0_ch1, state.adc_0_ch2, state.adc_0_ch3];
+    for (var i = 0; i < 4; i++) {
+      var label = document.getElementById('adc0-label-' + i);
+      if (label) label.textContent = names[i] || defaults[i];
+      var readout = document.getElementById('adc0-readout-' + i);
+      if (readout) readout.textContent = (values[i] != null ? values[i].toFixed(3) : '0.000') + ' V';
+    }
+  }
+
   /* ---- SWR Readout ------------------------------------------------------ */
 
   var swrThreshold = 3.0;
@@ -432,6 +446,7 @@
     updateDbmReadout('fwd-dbm-readout', state.fwd_dbm);
     updateDbmReadout('ref-dbm-readout', state.ref_dbm);
     updateSwr(state.swr);
+    updateAdc0(state);
     appendPowerBuffer(fwdBuffer, state.fwd_w);
     appendPowerBuffer(refBuffer, state.ref_w);
     appendTemp(state);

@@ -64,9 +64,19 @@ void config_defaults(void)
     s_draft.ref_coupling_db = 0.0f;
     s_draft.ref_attenuator_db = 0.0f;
 
-    /* ADC input resistor divider */
-    s_draft.adc_r_top_ohms = 10000.0f;
-    s_draft.adc_r_bottom_ohms = 15000.0f;
+    /* ADC input resistor dividers — per-channel */
+    s_draft.adc_1a_r_top_ohms = 10000.0f;
+    s_draft.adc_1a_r_bottom_ohms = 15000.0f;
+    s_draft.adc_1b_r_top_ohms = 10000.0f;
+    s_draft.adc_1b_r_bottom_ohms = 15000.0f;
+    s_draft.adc_0a_r_top_ohms = 10000.0f;
+    s_draft.adc_0a_r_bottom_ohms = 15000.0f;
+    s_draft.adc_0b_r_top_ohms = 10000.0f;
+    s_draft.adc_0b_r_bottom_ohms = 15000.0f;
+    s_draft.adc_0c_r_top_ohms = 10000.0f;
+    s_draft.adc_0c_r_bottom_ohms = 15000.0f;
+    s_draft.adc_0d_r_top_ohms = 10000.0f;
+    s_draft.adc_0d_r_bottom_ohms = 15000.0f;
 
     /* Thermistor — NTC 100kΩ β=3950, 100kΩ series */
     s_draft.thermistor_beta = 3950.0f;
@@ -182,8 +192,18 @@ static const config_float_key_t s_float_keys[] = {
     CFG_KEY("ref_intercept", ref_intercept_dbm, -100.0f, 100.0f),
     CFG_KEY("ref_coupling", ref_coupling_db, -80.0f, 0.0f),
     CFG_KEY("ref_atten", ref_attenuator_db, 0.0f, 60.0f),
-    CFG_KEY("adc_r_top", adc_r_top_ohms, 0.0f, 10000000.0f),
-    CFG_KEY("adc_r_bottom", adc_r_bottom_ohms, 0.0f, 10000000.0f),
+    CFG_KEY("adc_1a_r_top", adc_1a_r_top_ohms, 0.0f, 10000000.0f),
+    CFG_KEY("adc_1a_r_bottom", adc_1a_r_bottom_ohms, 0.0f, 10000000.0f),
+    CFG_KEY("adc_1b_r_top", adc_1b_r_top_ohms, 0.0f, 10000000.0f),
+    CFG_KEY("adc_1b_r_bottom", adc_1b_r_bottom_ohms, 0.0f, 10000000.0f),
+    CFG_KEY("adc_0a_r_top", adc_0a_r_top_ohms, 0.0f, 10000000.0f),
+    CFG_KEY("adc_0a_r_bottom", adc_0a_r_bottom_ohms, 0.0f, 10000000.0f),
+    CFG_KEY("adc_0b_r_top", adc_0b_r_top_ohms, 0.0f, 10000000.0f),
+    CFG_KEY("adc_0b_r_bottom", adc_0b_r_bottom_ohms, 0.0f, 10000000.0f),
+    CFG_KEY("adc_0c_r_top", adc_0c_r_top_ohms, 0.0f, 10000000.0f),
+    CFG_KEY("adc_0c_r_bottom", adc_0c_r_bottom_ohms, 0.0f, 10000000.0f),
+    CFG_KEY("adc_0d_r_top", adc_0d_r_top_ohms, 0.0f, 10000000.0f),
+    CFG_KEY("adc_0d_r_bottom", adc_0d_r_bottom_ohms, 0.0f, 10000000.0f),
     CFG_KEY("therm_beta", thermistor_beta, 1.0f, 100000.0f),
     CFG_KEY("therm_r0", thermistor_r0_ohms, 1.0f, 10000000.0f),
     CFG_KEY("therm_rseries", thermistor_r_series_ohms, 1.0f, 10000000.0f),
@@ -315,6 +335,28 @@ esp_err_t config_set_relay_name(uint8_t relay_id, const char *name,
     if (name && name[0] != '\0') {
         strncpy(dst, name, CFG_RELAY_NAME_LEN - 1);
         dst[CFG_RELAY_NAME_LEN - 1] = '\0';
+    } else {
+        dst[0] = '\0';
+    }
+    config_unlock();
+    return ESP_OK;
+}
+
+esp_err_t config_set_adc_ch_name(uint8_t ch, const char *name,
+                                  char *err_msg, size_t err_len)
+{
+    if (ch > 3) {
+        if (err_msg) {
+            snprintf(err_msg, err_len, "channel %d out of range [0..3]", ch);
+        }
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    config_lock();
+    char *dst = s_draft.adc_0_ch_names[ch];
+    if (name && name[0] != '\0') {
+        strncpy(dst, name, CFG_ADC_CH_NAME_LEN - 1);
+        dst[CFG_ADC_CH_NAME_LEN - 1] = '\0';
     } else {
         dst[0] = '\0';
     }

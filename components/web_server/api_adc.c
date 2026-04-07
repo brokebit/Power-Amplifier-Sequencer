@@ -4,6 +4,7 @@
 
 #include "cJSON.h"
 #include "ads1115.h"
+#include "config.h"
 #include "monitor.h"
 
 #include "web_json.h"
@@ -30,7 +31,7 @@ static esp_err_t api_adc_handler(httpd_req_t *req)
             }
 
             float voltage = 0;
-            esp_err_t err = monitor_read_channel((ads1115_channel_t)ch, &voltage);
+            esp_err_t err = monitor_read_channel(1, (ads1115_channel_t)ch, &voltage);
             if (err != ESP_OK) {
                 return web_json_error(req, 500, "ADC read failed");
             }
@@ -47,7 +48,7 @@ static esp_err_t api_adc_handler(httpd_req_t *req)
     cJSON *channels = cJSON_CreateArray();
     for (int i = 0; i < 4; i++) {
         float voltage = 0;
-        esp_err_t err = monitor_read_channel((ads1115_channel_t)i, &voltage);
+        esp_err_t err = monitor_read_channel(1, (ads1115_channel_t)i, &voltage);
 
         cJSON *item = cJSON_CreateObject();
         cJSON_AddNumberToObject(item, "ch", i);
@@ -65,6 +66,37 @@ static esp_err_t api_adc_handler(httpd_req_t *req)
     return web_json_ok(req, data);
 }
 
+/* ---- POST /api/adc/name ------------------------------------------------- */
+
+static esp_err_t api_adc_name_handler(httpd_req_t *req)
+{
+    cJSON *body = web_parse_body(req);
+    if (!body) {
+        return ESP_OK;
+    }
+
+    cJSON *ch_json = cJSON_GetObjectItem(body, "ch");
+    cJSON *name_json = cJSON_GetObjectItem(body, "name");
+    if (!ch_json || !cJSON_IsNumber(ch_json)) {
+        cJSON_Delete(body);
+        return web_json_error(req, 400, "missing 'ch' (number) field");
+    }
+
+    int ch = ch_json->valueint;
+    const char *name = (name_json && cJSON_IsString(name_json))
+                           ? name_json->valuestring : NULL;
+
+    char err_msg[64];
+    esp_err_t err = config_set_adc_ch_name((uint8_t)ch, name,
+                                            err_msg, sizeof(err_msg));
+    cJSON_Delete(body);
+
+    if (err != ESP_OK) {
+        return web_json_error(req, 400, err_msg);
+    }
+    return web_json_ok(req, NULL);
+}
+
 /* ---- registration ------------------------------------------------------- */
 
 void web_register_api_adc(httpd_handle_t server)
@@ -75,4 +107,11 @@ void web_register_api_adc(httpd_handle_t server)
         .handler = api_adc_handler,
     };
     httpd_register_uri_handler(server, &adc_uri);
+
+    const httpd_uri_t name_uri = {
+        .uri = "/api/adc/name",
+        .method = HTTP_POST,
+        .handler = api_adc_name_handler,
+    };
+    httpd_register_uri_handler(server, &name_uri);
 }

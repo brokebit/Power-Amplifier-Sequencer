@@ -15,6 +15,7 @@ extern "C" {
 #define SEQ_MAX_STEPS 8           /* Max relay steps per TX or RX sequence */
 #define SEQ_MAX_DELAY_MS 10000    /* Max delay between sequence steps (ms) */
 #define CFG_RELAY_NAME_LEN 16     /* Max relay name length including null terminator */
+#define CFG_ADC_CH_NAME_LEN 16   /* Max ADC channel name length including null terminator */
 #define CONFIG_MAX_APPLY_CBS 4    /* Max config_apply() callbacks */
 
 /* NVS namespace and blob key */
@@ -65,9 +66,19 @@ typedef struct {
     float ref_coupling_db;           /* default: 0.0   */
     float ref_attenuator_db;         /* default: 0.0   */
 
-    /* ADC input resistor divider — ratio = R_bottom / (R_top + R_bottom) */
-    float adc_r_top_ohms;            /* default: 10000  */
-    float adc_r_bottom_ohms;         /* default: 15000  */
+    /* ADC input resistor dividers — per-channel, ratio = R_bottom / (R_top + R_bottom) */
+    float adc_1a_r_top_ohms;         /* Chip 1 AIN0 (fwd) — default: 10000 */
+    float adc_1a_r_bottom_ohms;      /* default: 15000 */
+    float adc_1b_r_top_ohms;         /* Chip 1 AIN1 (ref) — default: 10000 */
+    float adc_1b_r_bottom_ohms;      /* default: 15000 */
+    float adc_0a_r_top_ohms;         /* Chip 0 AIN0 — default: 10000 */
+    float adc_0a_r_bottom_ohms;      /* default: 15000 */
+    float adc_0b_r_top_ohms;         /* Chip 0 AIN1 — default: 10000 */
+    float adc_0b_r_bottom_ohms;      /* default: 15000 */
+    float adc_0c_r_top_ohms;         /* Chip 0 AIN2 — default: 10000 */
+    float adc_0c_r_bottom_ohms;      /* default: 15000 */
+    float adc_0d_r_top_ohms;         /* Chip 0 AIN3 — default: 10000 */
+    float adc_0d_r_bottom_ohms;      /* default: 15000 */
 
     /* Thermistor (Steinhart-Hart beta model) */
     float thermistor_beta;           /* default: 3950   */
@@ -76,6 +87,9 @@ typedef struct {
 
     /* Relay display names — empty string means no alias */
     char relay_names[HW_RELAY_COUNT][CFG_RELAY_NAME_LEN];
+
+    /* Chip 0 channel display names — empty string means no alias */
+    char adc_0_ch_names[4][CFG_ADC_CH_NAME_LEN];
 } app_config_t;
 
 /* ---------------------------------------------------------
@@ -148,6 +162,14 @@ void config_snapshot(app_config_t *out);
  */
 esp_err_t config_set_relay_name(uint8_t relay_id, const char *name,
                                 char *err_msg, size_t err_len);
+
+/**
+ * Set a chip 0 ADC channel display name.  Validates ch (0–3) and
+ * name length (< CFG_ADC_CH_NAME_LEN).  NULL or empty name clears the alias.
+ * Locks internally.
+ */
+esp_err_t config_set_adc_ch_name(uint8_t ch, const char *name,
+                                  char *err_msg, size_t err_len);
 
 /**
  * Write a complete sequence (TX or RX).  Validates count (1–SEQ_MAX_STEPS)

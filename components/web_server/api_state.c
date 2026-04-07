@@ -52,6 +52,19 @@ cJSON *web_build_state_json(void)
     cJSON_AddNumberToObject(data, "temp1_c", ss.temp1_c);
     cJSON_AddNumberToObject(data, "temp2_c", ss.temp2_c);
 
+    cJSON_AddNumberToObject(data, "adc_0_ch0", ss.adc_0_ch0);
+    cJSON_AddNumberToObject(data, "adc_0_ch1", ss.adc_0_ch1);
+    cJSON_AddNumberToObject(data, "adc_0_ch2", ss.adc_0_ch2);
+    cJSON_AddNumberToObject(data, "adc_0_ch3", ss.adc_0_ch3);
+
+    /* ADC chip 0 channel names */
+    cJSON *adc_names = cJSON_CreateArray();
+    for (int i = 0; i < 4; i++) {
+        cJSON_AddItemToArray(adc_names,
+            cJSON_CreateString(cfg_snap.adc_0_ch_names[i][0] ? cfg_snap.adc_0_ch_names[i] : ""));
+    }
+    cJSON_AddItemToObject(data, "adc_0_ch_names", adc_names);
+
     cJSON *wifi = cJSON_CreateObject();
     cJSON_AddBoolToObject(wifi, "connected", ss.wifi_connected);
     if (ss.wifi_connected) {
