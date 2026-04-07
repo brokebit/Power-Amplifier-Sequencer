@@ -329,6 +329,12 @@ void monitor_task(void *arg)
             }
         }
 
+        /* Publish chip 1 raw ADC voltages */
+        system_state_set_adc1_raw(fwd_v >= 0.0f ? fwd_v : 0.0f,
+                                  ref_v >= 0.0f ? ref_v : 0.0f,
+                                  t1_v  > 0.0f  ? t1_v  : 0.0f,
+                                  t2_v  > 0.0f  ? t2_v  : 0.0f);
+
         /* ---- Chip 0 — four general-purpose channels ---- */
         {
             static const struct {

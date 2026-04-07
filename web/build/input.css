@@ -32,4 +32,28 @@
   .stale > * {
     @apply opacity-60 pointer-events-none;
   }
+
+  /* Tooltip — click/hover ? icon */
+  .cfg-tip {
+    @apply relative inline-flex items-center justify-center w-4 h-4 rounded-full
+           text-xs cursor-help shrink-0 select-none;
+    background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+    color: var(--color-accent);
+  }
+  .cfg-tip .cfg-tip-text {
+    @apply invisible absolute z-10 left-6 top-1/2 -translate-y-1/2
+           w-56 px-2 py-1.5 rounded text-xs leading-snug
+           bg-bg-primary text-text-primary border border-accent shadow-lg;
+  }
+  .cfg-tip:hover .cfg-tip-text,
+  .cfg-tip:focus .cfg-tip-text {
+    @apply visible;
+  }
+
+  /* On narrow screens, anchor tooltip below the icon instead of beside it */
+  @media (max-width: 640px) {
+    .cfg-tip .cfg-tip-text {
+      @apply left-0 top-full translate-y-1 -translate-x-0;
+    }
+  }
 }

@@ -7,41 +7,41 @@
   /* ---- Field definitions ------------------------------------------------ */
 
   var FIELDS = [
-    { section: 'fault',  key: 'swr_threshold',   i18n: 'config.swr_threshold',   step: 0.1, min: 1.1, suffix: ':1' },
-    { section: 'fault',  key: 'temp1_threshold',  i18n: 'config.temp1_threshold', step: 1,   min: 1,   suffix: '\u00b0C' },
-    { section: 'fault',  key: 'temp2_threshold',  i18n: 'config.temp2_threshold', step: 1,   min: 1,   suffix: '\u00b0C' },
-    { section: 'pa',     key: 'pa_relay',         i18n: 'config.pa_relay',        step: 1,   min: 1,   max: 6, suffix: '' },
-    { section: 'power',  key: 'fwd_slope',        i18n: 'config.fwd_slope',       step: 0.1, suffix: 'mV/dB' },
-    { section: 'power',  key: 'fwd_intercept',   i18n: 'config.fwd_intercept',   step: 0.1, suffix: 'dBm' },
-    { section: 'power',  key: 'fwd_coupling',    i18n: 'config.fwd_coupling',    step: 0.1, max: 0, suffix: 'dB' },
-    { section: 'power',  key: 'fwd_atten',       i18n: 'config.fwd_atten',       step: 0.1, min: 0, suffix: 'dB' },
-    { section: 'power',  key: 'ref_slope',        i18n: 'config.ref_slope',       step: 0.1, suffix: 'mV/dB' },
-    { section: 'power',  key: 'ref_intercept',   i18n: 'config.ref_intercept',   step: 0.1, suffix: 'dBm' },
-    { section: 'power',  key: 'ref_coupling',    i18n: 'config.ref_coupling',    step: 0.1, max: 0, suffix: 'dB' },
-    { section: 'power',  key: 'ref_atten',       i18n: 'config.ref_atten',       step: 0.1, min: 0, suffix: 'dB' },
-    { section: 'divider', key: 'adc_1a_r_top',     i18n: 'config.adc_1a_r_top',    step: 1, min: 0, suffix: '\u03a9' },
-    { section: 'divider', key: 'adc_1a_r_bottom',  i18n: 'config.adc_1a_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
-    { section: 'divider', key: 'adc_1b_r_top',     i18n: 'config.adc_1b_r_top',    step: 1, min: 0, suffix: '\u03a9' },
-    { section: 'divider', key: 'adc_1b_r_bottom',  i18n: 'config.adc_1b_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
-    { section: 'divider', key: 'adc_0a_r_top',     i18n: 'config.adc_0a_r_top',    step: 1, min: 0, suffix: '\u03a9' },
-    { section: 'divider', key: 'adc_0a_r_bottom',  i18n: 'config.adc_0a_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
-    { section: 'divider', key: 'adc_0b_r_top',     i18n: 'config.adc_0b_r_top',    step: 1, min: 0, suffix: '\u03a9' },
-    { section: 'divider', key: 'adc_0b_r_bottom',  i18n: 'config.adc_0b_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
-    { section: 'divider', key: 'adc_0c_r_top',     i18n: 'config.adc_0c_r_top',    step: 1, min: 0, suffix: '\u03a9' },
-    { section: 'divider', key: 'adc_0c_r_bottom',  i18n: 'config.adc_0c_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
-    { section: 'divider', key: 'adc_0d_r_top',     i18n: 'config.adc_0d_r_top',    step: 1, min: 0, suffix: '\u03a9' },
-    { section: 'divider', key: 'adc_0d_r_bottom',  i18n: 'config.adc_0d_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
-    { section: 'therm',  key: 'therm_beta',       i18n: 'config.therm_beta',      step: 1,   min: 1,   suffix: '' },
-    { section: 'therm',  key: 'therm_r0',         i18n: 'config.therm_r0',        step: 1,   min: 1,   suffix: '\u03a9' },
-    { section: 'therm',  key: 'therm_rseries',    i18n: 'config.therm_rseries',   step: 1,   min: 1,   suffix: '\u03a9' }
+    { section: 'fault',  key: 'swr_threshold',   i18n: 'config.swr_threshold',   tip: 'config.tip_swr_threshold',   step: 0.1, min: 1.1, suffix: ':1' },
+    { section: 'fault',  key: 'temp1_threshold',  i18n: 'config.temp1_threshold', tip: 'config.tip_temp1_threshold', step: 1,   min: 1,   suffix: '\u00b0C' },
+    { section: 'fault',  key: 'temp2_threshold',  i18n: 'config.temp2_threshold', tip: 'config.tip_temp2_threshold', step: 1,   min: 1,   suffix: '\u00b0C' },
+    { section: 'pa',     key: 'pa_relay',         i18n: 'config.pa_relay',        tip: 'config.tip_pa_relay',        step: 1,   min: 1,   max: 6, suffix: '' },
+    { section: 'power',  key: 'fwd_slope',        i18n: 'config.fwd_slope',       tip: 'config.tip_fwd_slope',       step: 0.1, suffix: 'mV/dB' },
+    { section: 'power',  key: 'fwd_intercept',   i18n: 'config.fwd_intercept',   tip: 'config.tip_fwd_intercept',   step: 0.1, suffix: 'dBm' },
+    { section: 'power',  key: 'fwd_coupling',    i18n: 'config.fwd_coupling',    tip: 'config.tip_fwd_coupling',    step: 0.1, max: 0, suffix: 'dB' },
+    { section: 'power',  key: 'fwd_atten',       i18n: 'config.fwd_atten',       tip: 'config.tip_fwd_atten',       step: 0.1, min: 0, suffix: 'dB' },
+    { section: 'power',  key: 'ref_slope',        i18n: 'config.ref_slope',       tip: 'config.tip_ref_slope',       step: 0.1, suffix: 'mV/dB' },
+    { section: 'power',  key: 'ref_intercept',   i18n: 'config.ref_intercept',   tip: 'config.tip_ref_intercept',   step: 0.1, suffix: 'dBm' },
+    { section: 'power',  key: 'ref_coupling',    i18n: 'config.ref_coupling',    tip: 'config.tip_ref_coupling',    step: 0.1, max: 0, suffix: 'dB' },
+    { section: 'power',  key: 'ref_atten',       i18n: 'config.ref_atten',       tip: 'config.tip_ref_atten',       step: 0.1, min: 0, suffix: 'dB' },
+    { section: 'divider', key: 'adc_1a_r_top',     i18n: 'config.adc_1a_r_top',    tip: 'config.tip_adc_1a_r_top',    step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_1a_r_bottom',  i18n: 'config.adc_1a_r_bottom', tip: 'config.tip_adc_1a_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_1b_r_top',     i18n: 'config.adc_1b_r_top',    tip: 'config.tip_adc_1b_r_top',    step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_1b_r_bottom',  i18n: 'config.adc_1b_r_bottom', tip: 'config.tip_adc_1b_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0a_r_top',     i18n: 'config.adc_0a_r_top',    tip: 'config.tip_adc_0a_r_top',    step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0a_r_bottom',  i18n: 'config.adc_0a_r_bottom', tip: 'config.tip_adc_0a_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0b_r_top',     i18n: 'config.adc_0b_r_top',    tip: 'config.tip_adc_0b_r_top',    step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0b_r_bottom',  i18n: 'config.adc_0b_r_bottom', tip: 'config.tip_adc_0b_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0c_r_top',     i18n: 'config.adc_0c_r_top',    tip: 'config.tip_adc_0c_r_top',    step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0c_r_bottom',  i18n: 'config.adc_0c_r_bottom', tip: 'config.tip_adc_0c_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0d_r_top',     i18n: 'config.adc_0d_r_top',    tip: 'config.tip_adc_0d_r_top',    step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'divider', key: 'adc_0d_r_bottom',  i18n: 'config.adc_0d_r_bottom', tip: 'config.tip_adc_0d_r_bottom', step: 1, min: 0, suffix: '\u03a9' },
+    { section: 'therm',  key: 'therm_beta',       i18n: 'config.therm_beta',      tip: 'config.tip_therm_beta',      step: 1,   min: 1,   suffix: '' },
+    { section: 'therm',  key: 'therm_r0',         i18n: 'config.therm_r0',        tip: 'config.tip_therm_r0',        step: 1,   min: 1,   suffix: '\u03a9' },
+    { section: 'therm',  key: 'therm_rseries',    i18n: 'config.therm_rseries',   tip: 'config.tip_therm_rseries',   step: 1,   min: 1,   suffix: '\u03a9' }
   ];
 
   var SECTIONS = [
-    { id: 'fault',  i18n: 'config.section_fault' },
-    { id: 'pa',     i18n: 'config.section_pa' },
-    { id: 'power',  i18n: 'config.section_power' },
-    { id: 'divider', i18n: 'config.section_divider' },
-    { id: 'therm',  i18n: 'config.section_therm' }
+    { id: 'fault',   i18n: 'config.section_fault',   desc: 'config.section_fault_desc' },
+    { id: 'pa',      i18n: 'config.section_pa',      desc: 'config.section_pa_desc' },
+    { id: 'power',   i18n: 'config.section_power',   desc: 'config.section_power_desc' },
+    { id: 'divider', i18n: 'config.section_divider',  desc: 'config.section_divider_desc' },
+    { id: 'therm',   i18n: 'config.section_therm',   desc: 'config.section_therm_desc' }
   ];
 
   /* ---- Build thresholds UI ---------------------------------------------- */
@@ -56,9 +56,19 @@
     SECTIONS.forEach(function (sec) {
       /* Sub-section heading */
       var heading = document.createElement('h4');
-      heading.className = 'text-sm font-medium text-text-secondary mt-3 mb-2 first:mt-0';
+      heading.className = 'text-sm font-medium text-text-secondary mt-3 mb-1 first:mt-0';
+      heading.setAttribute('data-i18n', sec.i18n);
       heading.textContent = I18n.t(sec.i18n);
       container.appendChild(heading);
+
+      /* Section description */
+      if (sec.desc) {
+        var desc = document.createElement('p');
+        desc.className = 'text-xs text-text-secondary mb-2 leading-relaxed';
+        desc.setAttribute('data-i18n', sec.desc);
+        desc.textContent = I18n.t(sec.desc);
+        container.appendChild(desc);
+      }
 
       /* Fields for this section */
       FIELDS.forEach(function (f) {
@@ -69,6 +79,7 @@
 
         var label = document.createElement('label');
         label.className = 'text-sm text-text-primary w-40 shrink-0';
+        label.setAttribute('data-i18n', f.i18n);
         label.textContent = I18n.t(f.i18n);
         label.setAttribute('for', 'cfg-' + f.key);
 
@@ -88,6 +99,21 @@
         row.appendChild(label);
         row.appendChild(input);
         row.appendChild(suffix);
+
+        /* Tooltip ? icon */
+        if (f.tip) {
+          var tip = document.createElement('span');
+          tip.className = 'cfg-tip';
+          tip.setAttribute('tabindex', '0');
+          tip.textContent = '?';
+          var tipText = document.createElement('span');
+          tipText.className = 'cfg-tip-text';
+          tipText.setAttribute('data-i18n', f.tip);
+          tipText.textContent = I18n.t(f.tip);
+          tip.appendChild(tipText);
+          row.appendChild(tip);
+        }
+
         container.appendChild(row);
 
         /* Submit on blur or Enter */

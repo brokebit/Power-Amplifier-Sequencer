@@ -62,6 +62,16 @@ void system_state_set_sensors(float fwd_w, float ref_w,
     portEXIT_CRITICAL(&s_mux);
 }
 
+void system_state_set_adc1_raw(float ch0, float ch1, float ch2, float ch3)
+{
+    portENTER_CRITICAL(&s_mux);
+    s_state.adc_1_ch0 = ch0;
+    s_state.adc_1_ch1 = ch1;
+    s_state.adc_1_ch2 = ch2;
+    s_state.adc_1_ch3 = ch3;
+    portEXIT_CRITICAL(&s_mux);
+}
+
 void system_state_set_adc0(float ch0, float ch1, float ch2, float ch3)
 {
     portENTER_CRITICAL(&s_mux);
