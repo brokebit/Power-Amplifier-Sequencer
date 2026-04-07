@@ -3,9 +3,8 @@
 #include "esp_http_server.h"
 
 #include "cJSON.h"
-#include "ads1115.h"
 #include "config.h"
-#include "monitor.h"
+#include "system_state.h"
 
 #include "web_json.h"
 
@@ -17,6 +16,11 @@ static const char *s_channel_names[] = {
 
 static esp_err_t api_adc_handler(httpd_req_t *req)
 {
+    /* Snapshot chip 1 ADC voltages from system state (updated by monitor task) */
+    system_state_t ss;
+    system_state_get(&ss);
+    const float voltages[] = { ss.adc_1_ch0, ss.adc_1_ch1, ss.adc_1_ch2, ss.adc_1_ch3 };
+
     /* Check for ?ch=N query parameter */
     size_t qlen = httpd_req_get_url_query_len(req);
     if (qlen > 0 && qlen < 16) {
@@ -30,16 +34,10 @@ static esp_err_t api_adc_handler(httpd_req_t *req)
                 return web_json_error(req, 400, "ch must be 0-3");
             }
 
-            float voltage = 0;
-            esp_err_t err = monitor_read_channel(1, (ads1115_channel_t)ch, &voltage);
-            if (err != ESP_OK) {
-                return web_json_error(req, 500, "ADC read failed");
-            }
-
             cJSON *data = cJSON_CreateObject();
             cJSON_AddNumberToObject(data, "ch", ch);
             cJSON_AddStringToObject(data, "name", s_channel_names[ch]);
-            cJSON_AddNumberToObject(data, "voltage", voltage);
+            cJSON_AddNumberToObject(data, "voltage", voltages[ch]);
             return web_json_ok(req, data);
         }
     }
@@ -47,17 +45,10 @@ static esp_err_t api_adc_handler(httpd_req_t *req)
     /* No ch parameter — read all channels */
     cJSON *channels = cJSON_CreateArray();
     for (int i = 0; i < 4; i++) {
-        float voltage = 0;
-        esp_err_t err = monitor_read_channel(1, (ads1115_channel_t)i, &voltage);
-
         cJSON *item = cJSON_CreateObject();
         cJSON_AddNumberToObject(item, "ch", i);
         cJSON_AddStringToObject(item, "name", s_channel_names[i]);
-        if (err == ESP_OK) {
-            cJSON_AddNumberToObject(item, "voltage", voltage);
-        } else {
-            cJSON_AddNullToObject(item, "voltage");
-        }
+        cJSON_AddNumberToObject(item, "voltage", voltages[i]);
         cJSON_AddItemToArray(channels, item);
     }
 

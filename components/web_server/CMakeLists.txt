@@ -19,8 +19,6 @@ idf_component_register(
              config
              system_state
              sequencer
-             monitor
-             ads1115
              relays
              wifi_sta
              ota
