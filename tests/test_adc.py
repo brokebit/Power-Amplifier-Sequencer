@@ -49,3 +49,29 @@ class TestGetAdcSingle:
         resp = api.get("/api/adc?ch=4")
         body = resp.json()
         assert body["ok"] is False
+
+
+@pytest.mark.write
+class TestSetAdcName:
+    """POST /api/adc/name — set/clear chip 0 channel names."""
+
+    def test_set_channel_name(self, api):
+        api.post_ok("/api/adc/name", json={"ch": 0, "name": "MySensor"})
+        data = api.get_ok("/api/config")
+        assert data["adc_0_ch_names"][0] == "MySensor"
+
+    def test_clear_channel_name(self, api):
+        api.post_ok("/api/adc/name", json={"ch": 0, "name": "Temp"})
+        api.post_ok("/api/adc/name", json={"ch": 0, "name": None})
+        data = api.get_ok("/api/config")
+        assert data["adc_0_ch_names"][0] == ""
+
+    def test_invalid_channel(self, api):
+        resp = api.post("/api/adc/name", json={"ch": 5, "name": "Bad"})
+        body = resp.json()
+        assert body["ok"] is False
+
+    def test_missing_ch_field(self, api):
+        resp = api.post("/api/adc/name", json={"name": "NoChannel"})
+        body = resp.json()
+        assert body["ok"] is False

@@ -10,17 +10,19 @@ Built with ESP-IDF (via PlatformIO) and FreeRTOS.
 ## Hardware
 
 - **MCU:** ESP32-S3-DevKitM-1 (8 MB flash)
-- **ADC:** Two ADS1115 16-bit ADCs on I2C (0x48 reserved, 0x49 active)
+- **ADC:** Two ADS1115 16-bit ADCs on I2C (0x48 and 0x49, both active)
 - **Relays:** 6 relay outputs (GPIOs 39, 40, 41, 42, 11, 12)
   - Relay 1: RX/TX path select
   - Relay 2: PA on/off (configurable emergency shutdown target, default)
   - Relay 3: LNA isolate
   - Relays 4-6: Spare
-- **Sensors (on ADS1115 at 0x49):**
+- **Sensors (on ADS1115 at 0x49 — chip 1):**
   - AIN0: Forward RF power (directional coupler detector)
   - AIN1: Reflected RF power
   - AIN2: Temperature Sensor 1 (100k NTC thermistor)
   - AIN3: Temperature Sensor 2 (100k NTC thermistor)
+- **General-purpose ADC (on ADS1115 at 0x48 — chip 0):**
+  - AIN0–AIN3: Four configurable channels with per-channel resistor divider calibration and user-assignable names
 - **Inputs:**
   - PTT on GPIO 13 (active low)
   - 6 buttons (GPIO 4, 5, 6, 7, 48, 47) — BTN1 is emergency PA off, BTN2-6 spare
@@ -53,10 +55,10 @@ The system is organized as ESP-IDF components under `components/`. Two FreeRTOS 
 | Component | Purpose |
 |---|---|
 | [sequencer](components/sequencer/README.md) | Central state machine (RX, SEQUENCING_TX, TX, SEQUENCING_RX, FAULT). Sole consumer of the event queue. Orchestrates relay switching in timed sequences. Latching fault mode requires explicit clearance. |
-| [monitor](components/monitor/README.md) | Periodic ADC sensing task. Reads 4 channels via single-shot conversions (~500 ms cycle at 8 SPS). Computes power (dBm/W) via log-linear detector model, SWR, and temperatures (C). Injects fault events on threshold breach. |
+| [monitor](components/monitor/README.md) | Periodic ADC sensing task. Reads both ADS1115 chips via single-shot conversions. Chip 1: forward/reflected power (dBm/W via log-linear detector model), SWR, and temperatures. Chip 0: four general-purpose channels with per-channel divider correction. Injects fault events on threshold breach. |
 | [ads1115](components/ads1115/README.md) | Low-level I2C driver for ADS1115. Single-shot trigger/wait/read pattern. Caller owns synchronisation. |
 | [system_state](components/system_state/README.md) | Shared blackboard (spinlock-protected struct). All subsystems publish here; consumers read atomic snapshots. |
-| [config](components/config/) | NVS-backed runtime configuration. Relay sequences, fault thresholds, power calibration (log-linear detector slope/intercept, coupler, attenuator, ADC divider), thermistor parameters. Writes defaults on first boot. |
+| [config](components/config/) | NVS-backed runtime configuration. Relay sequences, fault thresholds, power calibration (log-linear detector slope/intercept, coupler, attenuator), per-channel ADC resistor dividers, ADC channel names, thermistor parameters. Writes defaults on first boot. |
 | [relays](components/relays/) | GPIO driver for 6 relays. 1-indexed IDs matching schematic labels. |
 | [ptt](components/ptt/) | PTT GPIO interrupt driver. Both-edge ISR posts assert/release events to sequencer queue. |
 | [buttons](components/buttons/) | Debounced button driver (50 ms timer). BTN1 wired to emergency PA off event. BTN2-6 support optional callbacks. |

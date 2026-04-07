@@ -59,7 +59,7 @@ Buttons are active-low with internal pull-ups enabled by the `buttons` component
 | `HW_I2C_SDA_GPIO` | 1 | I2C data line |
 | `HW_I2C_SCL_GPIO` | 2 | I2C clock line |
 | `HW_I2C_FREQ_HZ` | 400000 | 400 kHz (Fast Mode) |
-| `HW_ADS1115_0_ADDR` | `0x48` | Reserved for future use |
+| `HW_ADS1115_0_ADDR` | `0x48` | General-purpose ADC channels (AIN0–AIN3) |
 | `HW_ADS1115_1_ADDR` | `0x49` | Active: AIN0=fwd power, AIN1=ref power, AIN2=temp sensor 2, AIN3=temp sensor 1 |
 | `HW_ADS1115_0_ALRT_GPIO` | 16 | ALERT/DRDY interrupt pin for ADC 0 |
 | `HW_ADS1115_1_ALRT_GPIO` | 15 | ALERT/DRDY interrupt pin for ADC 1 |
@@ -98,7 +98,7 @@ Additionally, `cli` and `web_server` include the header for relay/button count c
 
 - **1-indexed relay IDs, 0-indexed arrays.** Relay and button IDs visible to the user (CLI, web API, config) are 1-indexed to match schematic reference designators. The GPIO arrays are 0-indexed per C convention. Every consumer handles the `id - 1` offset individually, which is a conscious trade-off favoring schematic-aligned user-facing identifiers over code convenience.
 
-- **Two ADS1115 addresses defined, one reserved.** `HW_ADS1115_0_ADDR` (0x48) is declared but marked "reserved for future use," establishing the address allocation now so a second ADC can be added without changing existing definitions. Only `HW_ADS1115_1_ADDR` (0x49) is actively wired.
+- **Two ADS1115 addresses defined, both active.** `HW_ADS1115_0_ADDR` (0x48) provides four general-purpose ADC channels with per-channel resistor divider correction and configurable names. `HW_ADS1115_1_ADDR` (0x49) handles forward/reflected power and temperature sensing.
 
 - **`extern "C"` guards.** The header includes C++ linkage guards despite the project being pure C. This is forward-looking -- it allows the header to be included from C++ translation units (e.g., if a C++ display driver or test harness is added later) without modification.
 

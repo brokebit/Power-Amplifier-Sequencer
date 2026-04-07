@@ -27,9 +27,22 @@ class TestGetConfig:
     def test_has_power_calibration(self, api):
         data = api.get_ok("/api/config")
         for key in ("fwd_slope", "fwd_intercept", "fwd_coupling", "fwd_atten",
-                     "ref_slope", "ref_intercept", "ref_coupling", "ref_atten",
-                     "adc_r_top", "adc_r_bottom"):
+                     "ref_slope", "ref_intercept", "ref_coupling", "ref_atten"):
             assert isinstance(data[key], (int, float)), f"{key} missing or wrong type"
+
+    def test_has_per_channel_dividers(self, api):
+        data = api.get_ok("/api/config")
+        for prefix in ("adc_1a", "adc_1b", "adc_0a", "adc_0b", "adc_0c", "adc_0d"):
+            for suffix in ("_r_top", "_r_bottom"):
+                key = prefix + suffix
+                assert isinstance(data[key], (int, float)), f"{key} missing or wrong type"
+
+    def test_has_adc_channel_names(self, api):
+        data = api.get_ok("/api/config")
+        assert isinstance(data["adc_0_ch_names"], list)
+        assert len(data["adc_0_ch_names"]) == 4
+        for name in data["adc_0_ch_names"]:
+            assert isinstance(name, str)
 
     def test_has_thermistor_params(self, api):
         data = api.get_ok("/api/config")
@@ -231,6 +244,10 @@ class TestConfigDefaults:
         assert abs(data["fwd_intercept"] - 0.0) < 0.1
         assert abs(data["ref_slope"] - (-25.0)) < 0.1
         assert abs(data["ref_intercept"] - 0.0) < 0.1
+        # Per-channel divider defaults
+        for prefix in ("adc_1a", "adc_1b", "adc_0a", "adc_0b", "adc_0c", "adc_0d"):
+            assert abs(data[f"{prefix}_r_top"] - 10000.0) < 0.1
+            assert abs(data[f"{prefix}_r_bottom"] - 15000.0) < 0.1
 
 
 @pytest.mark.write

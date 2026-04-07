@@ -31,7 +31,7 @@ static const char *TAG = "monitor";
 static app_config_t s_cfg;
 static portMUX_TYPE s_cfg_mux = portMUX_INITIALIZER_UNLOCKED;
 static i2c_master_bus_handle_t s_bus;
-static ads1115_handle_t s_chip[2];  /* [0]=0x48 reserved, [1]=0x49 active */
+static ads1115_handle_t s_chip[2];  /* [0]=0x48, [1]=0x49 */
 
 /* ALERT/RDY events from ISRs — one queue per chip. */
 static QueueHandle_t s_adc_queue[2];
@@ -184,7 +184,7 @@ esp_err_t monitor_init(void)
         return ret;
     }
 
-    /* chip 0 (0x48) — reserved for future use */
+    /* chip 0 (0x48) — general-purpose ADC channels */
     ret = ads1115_init(s_bus, HW_ADS1115_0_ADDR, ADS1115_PGA_4096, &s_chip[0]);
     if (ret != ESP_OK) {
         return ret;

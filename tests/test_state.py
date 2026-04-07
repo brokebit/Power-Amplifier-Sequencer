@@ -54,6 +54,18 @@ class TestGetState:
         assert data["temp1_c"] is None or isinstance(data["temp1_c"], (int, float))
         assert data["temp2_c"] is None or isinstance(data["temp2_c"], (int, float))
 
+    def test_has_adc0_readings(self, api):
+        data = api.get_ok("/api/state")
+        for key in ("adc_0_ch0", "adc_0_ch1", "adc_0_ch2", "adc_0_ch3"):
+            assert isinstance(data[key], (int, float)), f"{key} missing or wrong type"
+
+    def test_has_adc0_channel_names(self, api):
+        data = api.get_ok("/api/state")
+        assert isinstance(data["adc_0_ch_names"], list)
+        assert len(data["adc_0_ch_names"]) == 4
+        for name in data["adc_0_ch_names"]:
+            assert isinstance(name, str)
+
     def test_has_wifi_object(self, api):
         data = api.get_ok("/api/state")
         wifi = data["wifi"]

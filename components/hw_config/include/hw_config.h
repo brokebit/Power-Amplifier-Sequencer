@@ -51,7 +51,7 @@ extern "C" {
 #define HW_I2C_SCL_GPIO 2
 #define HW_I2C_FREQ_HZ 400000
 
-#define HW_ADS1115_0_ADDR 0x48 /* Reserved for future use */
+#define HW_ADS1115_0_ADDR 0x48 /* General-purpose ADC channels */
 #define HW_ADS1115_1_ADDR 0x49 /* AIN0=fwd, AIN1=ref, AIN2=temp-R, AIN3=temp-L */
 
 #define HW_ADS1115_0_ALRT_GPIO 16

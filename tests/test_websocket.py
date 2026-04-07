@@ -48,6 +48,13 @@ class TestWebSocket:
             assert "swr" in data
             assert "temp1_c" in data
             assert "temp2_c" in data
+            assert "adc_0_ch0" in data
+            assert "adc_0_ch1" in data
+            assert "adc_0_ch2" in data
+            assert "adc_0_ch3" in data
+            assert "adc_0_ch_names" in data
+            assert isinstance(data["adc_0_ch_names"], list)
+            assert len(data["adc_0_ch_names"]) == 4
             assert "wifi" in data
         finally:
             ws.close()

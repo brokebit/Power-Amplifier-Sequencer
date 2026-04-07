@@ -99,9 +99,9 @@ The critical design point is that the ALERT/RDY interrupt is not owned by this d
 
 | Constant               | Value | Description                                        |
 |-------------------------|-------|----------------------------------------------------|
-| `HW_ADS1115_0_ADDR`   | 0x48  | Chip 0 I2C address (reserved, not actively sampled)|
+| `HW_ADS1115_0_ADDR`   | 0x48  | Chip 0 I2C address (general-purpose channels)      |
 | `HW_ADS1115_1_ADDR`   | 0x49  | Chip 1 I2C address (fwd, ref, temp1, temp2)        |
-| `HW_ADS1115_0_ALRT_GPIO` | 16 | ALERT/RDY pin for chip 0 (input only, no ISR)      |
+| `HW_ADS1115_0_ALRT_GPIO` | 16 | ALERT/RDY pin for chip 0 (falling-edge ISR)        |
 | `HW_ADS1115_1_ALRT_GPIO` | 15 | ALERT/RDY pin for chip 1 (falling-edge ISR)        |
 | `HW_I2C_SDA_GPIO`     | 1     | Shared I2C bus SDA                                 |
 | `HW_I2C_SCL_GPIO`     | 2     | Shared I2C bus SCL                                 |
@@ -137,7 +137,7 @@ The driver is **not thread-safe**. No internal locking exists. If multiple tasks
 
 - **Always wait for ALERT/RDY before reading.** Calling `ads1115_read_raw()` before the conversion completes will return the previous conversion's result (or 0x0000 on first read), silently producing stale data. The caller must set up a GPIO interrupt or poll the ALERT pin.
 
-- **Chip 0 (0x48) is initialised but not actively sampled.** The `monitor` component creates handles for both chips but only installs an ISR and reads channels on chip 1 (0x49). Chip 0 is reserved for future expansion (e.g., additional sensor inputs).
+- **Both chips are actively sampled.** The `monitor` component creates handles for both chips, each with its own falling-edge ISR and FreeRTOS queue. Chip 1 (0x49) handles power and temperature sensing. Chip 0 (0x48) provides four general-purpose ADC channels with per-channel resistor divider correction.
 
 - **Raw-to-voltage conversion assumes positive full-scale = 32767.** The formula `raw * FSR / 32767.0` maps the 16-bit signed range to +/- the PGA full-scale voltage. The monitor clamps negative values to zero with `fmaxf(..., 0.0f)` since all sensors produce positive voltages.
 

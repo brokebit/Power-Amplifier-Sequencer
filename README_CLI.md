@@ -6,7 +6,7 @@ On boot, a `seq> ` prompt is available on UART0 (USB serial). ESP_LOG output is 
 
 | Command | Description |
 |---------|-------------|
-| `status` | One-shot dump of PTT, state, fault, relays, power, SWR, temps, WiFi |
+| `status` | One-shot dump of PTT, state, fault, relays, power, SWR, temps, chip 0 ADC, WiFi |
 | `version` | Firmware name/version, IDF version, chip info |
 | `reboot` | Restart the ESP32 |
 | `log on` | Enable log output (INFO level) |
@@ -22,7 +22,7 @@ On boot, a `seq> ` prompt is available on UART0 (USB serial). ESP_LOG output is 
 | `config save` | Persist current config to NVS |
 | `config defaults` | Reset to factory defaults (in memory only) |
 
-Config keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `pa_relay`, `fwd_slope`, `fwd_intercept`, `fwd_coupling`, `fwd_atten`, `ref_slope`, `ref_intercept`, `ref_coupling`, `ref_atten`, `adc_r_top`, `adc_r_bottom`, `therm_beta`, `therm_r0`, `therm_rseries`
+Config keys: `swr_threshold`, `temp1_threshold`, `temp2_threshold`, `pa_relay`, `fwd_slope`, `fwd_intercept`, `fwd_coupling`, `fwd_atten`, `ref_slope`, `ref_intercept`, `ref_coupling`, `ref_atten`, `adc_1a_r_top`, `adc_1a_r_bottom`, `adc_1b_r_top`, `adc_1b_r_bottom`, `adc_0a_r_top`, `adc_0a_r_bottom`, `adc_0b_r_top`, `adc_0b_r_bottom`, `adc_0c_r_top`, `adc_0c_r_bottom`, `adc_0d_r_top`, `adc_0d_r_bottom`, `therm_beta`, `therm_r0`, `therm_rseries`
 
 ## Sequence Editing
 
@@ -81,9 +81,12 @@ Aliases are stored in the main config blob and persist across reboots after `con
 
 | Command | Description |
 |---------|-------------|
-| `adc read <0-3>` | Read a single ADC channel (voltage) |
-| `adc scan` | Read all 4 channels |
-| `monitor [interval_ms] [csv]` | Continuous status output (default 1000 ms, Enter to stop). Optional `csv` for machine-readable output |
+| `adc read <0-3>` | Read a single ADC channel from chip 1 (voltage) |
+| `adc scan` | Read all 4 channels on both chips (chip 0 and chip 1) |
+| `adc name` | Show all chip 0 channel name aliases |
+| `adc name <0-3> <label>` | Set a display name for a chip 0 channel (max 15 chars) |
+| `adc name <0-3>` | Clear a channel's name |
+| `monitor [interval_ms] [csv]` | Continuous status output (default 1000 ms, Enter to stop). Optional `csv` for machine-readable output. Includes chip 0 ADC readings with channel names. |
 
 ## WiFi
 
@@ -143,10 +146,16 @@ When `csv` is passed to the `monitor` command, output is one comma-separated lin
 | state | string | Sequencer state: RX, SEQ_TX, TX, SEQ_RX, FAULT |
 | fault | string | Fault code: none, HIGH_SWR, OVER_TEMP1, OVER_TEMP2, EMERGENCY |
 | relay1..relay6 | int | Individual relay states: 1 = on, 0 = off |
+| fwd_dbm | float | Forward power in dBm |
 | fwd_w | float | Forward power in watts |
+| ref_dbm | float | Reflected power in dBm |
 | ref_w | float | Reflected power in watts |
 | swr | float | Standing wave ratio |
 | temp1_c | float | Temperature sensor 1 in degrees C |
 | temp2_c | float | Temperature sensor 2 in degrees C |
+| adc_0_ch0 | float | Chip 0 AIN0 corrected voltage (V) |
+| adc_0_ch1 | float | Chip 0 AIN1 corrected voltage (V) |
+| adc_0_ch2 | float | Chip 0 AIN2 corrected voltage (V) |
+| adc_0_ch3 | float | Chip 0 AIN3 corrected voltage (V) |
 
-Example: `0,RX,none,0,0,0,0,0,0,0.0,0.0,1.0,28.3,27.9`
+Example: `0,RX,none,0,0,0,0,0,0,-999.0,0.0,-999.0,0.0,1.0,28.3,27.9,0.000,0.000,0.000,0.000`

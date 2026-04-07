@@ -4,7 +4,7 @@ When connected to WiFi, the device runs an HTTP server on port 80. Open `http://
 
 ## Live State (WebSocket)
 
-Connect to `ws://<device-ip>/ws` for a live JSON stream pushed every 500 ms. The frame format matches `GET /api/state`. The dashboard page (`/`) uses this automatically.
+Connect to `ws://<device-ip>/ws` for a live JSON stream pushed every 500 ms. The frame format matches `GET /api/state`, including chip 0 ADC readings (`adc_0_ch0`–`adc_0_ch3`) and channel names (`adc_0_ch_names`). The dashboard page (`/`) uses this automatically.
 
 ## REST Endpoints
 
@@ -13,7 +13,7 @@ All responses use the envelope `{"ok": true, "data": {...}}` or `{"ok": false, "
 ### State & System
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/state` | System state snapshot (PTT, sequencer, relays, power, SWR, temps, WiFi) |
+| GET | `/api/state` | System state snapshot (PTT, sequencer, relays, power, SWR, temps, chip 0 ADC, WiFi) |
 | GET | `/api/version` | Firmware version, IDF version, chip info |
 | POST | `/api/reboot` | Reboot the device (2s delay) |
 | POST | `/api/log` | Set log level — body: `{"level": "info", "tag": "monitor"}` |
@@ -21,7 +21,7 @@ All responses use the envelope `{"ok": true, "data": {...}}` or `{"ok": false, "
 ### Configuration
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/config` | Full config dump (thresholds, cal factors, sequences, relay names) |
+| GET | `/api/config` | Full config dump (thresholds, cal factors, per-channel dividers, ADC channel names, sequences, relay names) |
 | POST | `/api/config` | Set a config key — body: `{"key": "swr_threshold", "value": "2.5"}` |
 | POST | `/api/config/save` | Persist current config to NVS |
 | POST | `/api/config/defaults` | Reset config to factory defaults (in memory only) |
@@ -39,8 +39,9 @@ All responses use the envelope `{"ok": true, "data": {...}}` or `{"ok": false, "
 ### ADC
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/adc` | Read all 4 ADC channels (voltage) |
-| GET | `/api/adc?ch=0` | Read a single channel (0-3) |
+| GET | `/api/adc` | Read all 4 chip 1 ADC channels (voltage) |
+| GET | `/api/adc?ch=0` | Read a single chip 1 channel (0-3) |
+| POST | `/api/adc/name` | Set chip 0 channel name — body: `{"ch": 0, "name": "MySensor"}` (null to clear) |
 
 ### WiFi
 | Method | Path | Description |
@@ -80,4 +81,10 @@ curl -X POST http://192.168.1.100/api/config/save
 
 # Trigger OTA update
 curl -X POST http://192.168.1.100/api/ota/update -d '{"target":"latest"}'
+
+# Set a chip 0 ADC channel name
+curl -X POST http://192.168.1.100/api/adc/name -d '{"ch":0,"name":"Pressure"}'
+
+# Set a per-channel resistor divider value
+curl -X POST http://192.168.1.100/api/config -d '{"key":"adc_0a_r_top","value":"10000"}'
 ```

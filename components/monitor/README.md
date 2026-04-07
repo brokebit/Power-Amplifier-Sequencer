@@ -15,7 +15,7 @@ The component owns the I2C master bus and both ADS1115 chip handles. It is the s
 | AIN2            | Temperature 1   | NTC thermistor (PA)         |
 | AIN3            | Temperature 2   | NTC thermistor (PA)         |
 
-Both ADS1115 chips are initialised with PGA +/-4.096 V. Only chip 1 (0x49) is actively sampled; chip 0 (0x48) is initialised but reserved for future expansion.
+Both ADS1115 chips are initialised with PGA +/-4.096 V and actively sampled. Chip 1 (0x49) handles power and temperature sensing. Chip 0 (0x48) provides four general-purpose ADC channels with per-channel resistor divider correction.
 
 ## Key Data Structures
 
@@ -47,8 +47,8 @@ At init, the monitor snapshots the full `app_config_t` via `config_snapshot()`. 
 - **`s_cfg`** (`app_config_t`) -- Module-level copy of configuration, updated under `s_cfg_mux` spinlock.
 - **`s_cfg_mux`** (`portMUX_TYPE`) -- Spinlock protecting reads and writes to `s_cfg`. Used by `monitor_update_config()` (writer) and the task loop (reader) to ensure the task always sees a consistent configuration snapshot.
 - **`s_bus`** (`i2c_master_bus_handle_t`) -- The I2C master bus, owned and created by monitor.
-- **`s_chip[2]`** (`ads1115_handle_t`) -- Handles for both ADS1115 devices. Index 0 = 0x48 (reserved), index 1 = 0x49 (active).
-- **`s_adc_queue`** (`QueueHandle_t`) -- FreeRTOS queue (depth 8) carrying chip-index bytes from the ALERT/RDY ISR. Used to synchronise single-shot conversions.
+- **`s_chip[2]`** (`ads1115_handle_t`) -- Handles for both ADS1115 devices. Index 0 = 0x48 (general-purpose), index 1 = 0x49 (power/temp).
+- **`s_adc_queue[2]`** (`QueueHandle_t`) -- Per-chip FreeRTOS queues (depth 4 each) carrying chip-index bytes from the ALERT/RDY ISRs. Each chip has its own queue to prevent cross-talk between conversions.
 - **`s_adc_mutex`** (`SemaphoreHandle_t`) -- Mutex arbitrating ADC access between the monitor task loop and external callers (e.g. CLI `adc` command via `monitor_read_channel()`).
 
 ### Published State (via `system_state`)
@@ -144,7 +144,7 @@ Three fault types can be raised:
 
 - **Parameterless init with internal config snapshot.** `monitor_init()` takes no arguments. It calls `config_snapshot(&s_cfg)` to populate its initial config from the global config state. This eliminates the need for callers to pass a config pointer, reducing coupling between the init call-site and the config component.
 
-- **Chip 0 initialised but unused.** The second ADS1115 at address 0x48 is initialised at startup with its ALERT GPIO configured as input-with-pullup but no ISR. This reserves the hardware path for future expansion without requiring a firmware change to the init sequence.
+- **Dual-chip with independent ISRs.** Both ADS1115 chips have their own ALERT/RDY ISR and FreeRTOS queue. Chip 0 (0x48) reads four general-purpose channels with per-channel resistor divider correction. Chip 1 (0x49) handles power and temperature sensing. Per-chip queues prevent a conversion-ready interrupt from one chip being consumed by a read on the other.
 
 ## Dependencies
 
