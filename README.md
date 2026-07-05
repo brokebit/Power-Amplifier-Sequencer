@@ -1,11 +1,12 @@
 # RF Power Amplifier Sequencer
 
-![Dashboard](Screenshot.png)
-![Configuration](Screenshot-CFG.png)
-
 ESP32-S3 RF Power Amplifier TX/RX relay sequencer for 23cm band operation. Controls up to 6 relays in a configurable timed sequence to safely transition between receive and transmit states, with real-time monitoring of forward/reflected RF power, SWR, and PA temperatures.
 
 Built with ESP-IDF (via PlatformIO) and FreeRTOS.
+
+## Screen Shots
+![Dashboard](Screenshot.png)
+![Configuration](Screenshot-CFG.png)
 
 ## Hardware
 
@@ -162,20 +163,13 @@ pio run -t erase && pio run -t upload
 - The RX sequence should be the logical reverse of the TX sequence
 - The PA relay (used by emergency shutdown) is configurable via `config set pa_relay <1-6>` (default: 2)
 
-## Documentation
-
-| Document | Contents |
-|----------|----------|
-| [CLI Reference](README_CLI.md) | All serial console commands — system, config, sequences, relays, faults, ADC, WiFi, OTA |
-| [REST API Reference](README_API.md) | HTTP endpoints, WebSocket live state, curl examples |
-| [Deployment Guide](README_DEPLOYMENT.md) | Creating releases, flashing pre-built firmware (macOS/Linux/Windows), initial setup |
-
 ## Development Setup
 
 ### Prerequisites
 
 - [Visual Studio Code](https://code.visualstudio.com/)
 - [PlatformIO IDE extension](https://platformio.org/install/ide?install=vscode) for VS Code
+- [Git](https://git-scm.com/install/) - Platform specific
 
 ### Setup
 
@@ -196,6 +190,7 @@ pio run -t erase && pio run -t upload
 4. **Upload and monitor:**
    - Connect the ESP32-S3-DevKitM-1 via USB
    - Click the right-arrow icon to upload, or run: `pio run -t upload`
+   - Build the filesystem image by running: `pio run --target uploadfs`
    - Click the plug icon to open the serial monitor, or run: `pio device monitor`
    - Combined: `pio run -t upload && pio device monitor`
 
@@ -244,3 +239,11 @@ Each component under `components/` has its own `CMakeLists.txt`, `include/` dire
 - Thuroughly test wifi. Seems like I've noticed the device forgetting creds
 - If PTT changes to quickly, especially if less than the delay time on a seq, state can get confused
 - Test for multiple websocket connections fails
+
+## Documentation
+
+| Document | Contents |
+|----------|----------|
+| [CLI Reference](README_CLI.md) | All serial console commands — system, config, sequences, relays, faults, ADC, WiFi, OTA |
+| [REST API Reference](README_API.md) | HTTP endpoints, WebSocket live state, curl examples |
+| [Deployment Guide](README_DEPLOYMENT.md) | Creating releases, flashing pre-built firmware (macOS/Linux/Windows), initial setup |
