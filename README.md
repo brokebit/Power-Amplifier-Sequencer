@@ -188,16 +188,14 @@ pio run -t erase && pio run -t upload
    - Open a PlatformIO terminal and run: `pio run`
 
 4. **Upload and monitor:**
-   - Connect the ESP32-S3-DevKitM-1 via USB
+   - Connect the ESP32-S3-DevKitM-1 via USB - Be sure to connect to the USB port on the "right side" or "top" of the Devkit
    - Click the right-arrow icon to upload, or run: `pio run -t upload`
    - Build the filesystem image by running: `pio run --target uploadfs`
    - Click the plug icon to open the serial monitor, or run: `pio device monitor`
    - Combined: `pio run -t upload && pio device monitor`
 
 5. **Erase NVS (force config reset to defaults):**
-   ```
-   pio run -t erase
-   ```
+    - pio run -t erase
    Then re-upload. The config component will write factory defaults on next boot.
 
 ### Project Structure
