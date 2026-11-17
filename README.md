@@ -27,7 +27,7 @@ Built with ESP-IDF (via PlatformIO) and FreeRTOS.
 - **Inputs:**
   - PTT on GPIO 13 (active low)
   - 6 buttons (GPIO 4, 5, 6, 7, 48, 47) — BTN1 is emergency PA off, BTN2-6 spare
-- **Display:** Nextion on UART1 (TX:17, RX:18, 9600 baud) — reserved, not yet implemented
+- **Display:** [Nextion NX4832T035_011 dashboard](nextion/README.md) on UART1 (GPIO 17 TX, 9600 baud)
 - **I2C:** SDA GPIO 1, SCL GPIO 2, 400 kHz
 
 ## Architecture
@@ -188,16 +188,14 @@ pio run -t erase && pio run -t upload
    - Open a PlatformIO terminal and run: `pio run`
 
 4. **Upload and monitor:**
-   - Connect the ESP32-S3-DevKitM-1 via USB
+   - Connect the ESP32-S3-DevKitM-1 via USB - Be sure to connect to the USB port on the "right side" or "top" of the Devkit
    - Click the right-arrow icon to upload, or run: `pio run -t upload`
    - Build the filesystem image by running: `pio run --target uploadfs`
    - Click the plug icon to open the serial monitor, or run: `pio device monitor`
    - Combined: `pio run -t upload && pio device monitor`
 
 5. **Erase NVS (force config reset to defaults):**
-   ```
-   pio run -t erase
-   ```
+    - pio run -t erase
    Then re-upload. The config component will write factory defaults on next boot.
 
 ### Project Structure
@@ -231,7 +229,6 @@ Sequencer/
 Each component under `components/` has its own `CMakeLists.txt`, `include/` directory with public headers, and a `README.md` with detailed documentation of its data structures, event flow, and architecture decisions.
 
 ### TODO
-- Implement the Nextion display driver and UI
 - Implement a reset button to recover from EMERGENCY fault state without needing to power cycle
 - Add authentication to the REST API write endpoints
 

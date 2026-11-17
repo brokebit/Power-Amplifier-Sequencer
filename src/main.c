@@ -6,6 +6,7 @@
 #include "cli.h"
 #include "config.h"
 #include "monitor.h"
+#include "nextion_display.h"
 #include "ota.h"
 #include "ptt.h"
 #include "web_server.h"
@@ -52,4 +53,6 @@ void app_main(void)
 
     /* --- HTTP server: REST API, WebSocket, static files --- */
     ESP_ERROR_CHECK(web_server_init());
+
+    nextion_display_start();
 }

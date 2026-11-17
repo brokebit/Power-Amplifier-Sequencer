@@ -258,7 +258,13 @@
           },
           y: {
             beginAtZero: true,
-            ticks: { color: textCol, font: { size: 10 } },
+            // Format labels explicitly so Chart.js always displays tenths of a watt.
+            ticks: {
+              color: textCol,
+              font: { size: 10 },
+              precision: 1,
+              callback: function (value) { return Number(value).toFixed(1); }
+            },
             grid: { color: gridCol },
             title: { display: true, text: 'W', color: textCol, font: { size: 11 } }
           }
